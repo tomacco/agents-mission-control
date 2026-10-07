@@ -29,6 +29,7 @@ struct Caffeine {
     let pid: Int32
     let screen: Bool
     let left: Int?  // seconds, nil = until stopped
+    let total: Int? // the -t it was started with, to show which preset is on
 }
 
 @Observable
@@ -103,11 +104,11 @@ final class Helm {
             let f = line.split(separator: " ", omittingEmptySubsequences: true).map(String.init)
             guard f.count >= 3, f[2] == "caffeinate-bar", let pid = Int32(f[0]) else { continue }
             let args = f.dropFirst(3)
-            var left: Int?
-            if let i = args.firstIndex(of: "-t"), i + 1 < args.endIndex, let total = Int(args[i + 1]) {
-                left = max(0, total - seconds(etime: f[1]))
+            var left: Int?, total: Int?
+            if let i = args.firstIndex(of: "-t"), i + 1 < args.endIndex, let t = Int(args[i + 1]) {
+                left = max(0, t - seconds(etime: f[1])); total = t
             }
-            return Caffeine(pid: pid, screen: args.contains { $0.hasPrefix("-") && $0.contains("d") }, left: left)
+            return Caffeine(pid: pid, screen: args.contains { $0.hasPrefix("-") && $0.contains("d") }, left: left, total: total)
         }
         return nil
     }
@@ -137,5 +138,6 @@ func sh(_ path: String, _ args: String...) -> String {
 }
 
 func short(_ secs: Int) -> String {
-    secs >= 3600 ? "\(secs / 3600)h \(secs % 3600 / 60)m" : "\((secs + 59) / 60)m"
+    let m = (secs + 59) / 60
+    return m >= 60 ? "\(m / 60)h" + (m % 60 > 0 ? " \(m % 60)m" : "") : "\(m)m"
 }

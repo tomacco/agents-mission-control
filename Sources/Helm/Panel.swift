@@ -71,14 +71,21 @@ struct HandsOffTile: View {
 struct CaffeineTile: View {
     let helm: Helm
     var body: some View {
+        let c = helm.caffeine
         Tile {
             VStack(alignment: .leading, spacing: 10) {
-                Button { helm.caffeinate(helm.caffeine == nil ? "-i" : nil) } label: {
+                Button { c == nil ? start(nil) : helm.caffeinate(nil) } label: {
                     HStack(spacing: 12) {
-                        Glyph(symbol: "cup.and.saucer.fill", on: helm.caffeine != nil, tint: .orange)
+                        Image(systemName: "cup.and.saucer.fill")
+                            .font(.system(size: 17, weight: .semibold))
+                            .foregroundStyle(c == nil ? AnyShapeStyle(.primary) : AnyShapeStyle(.white))
+                            .frame(width: 40, height: 40)
+                            .background(Circle().fill(c == nil ? .clear : (c!.screen ? Art.amber : Art.orange)))
+                            .glassEffect(.regular, in: .circle)
                         VStack(alignment: .leading, spacing: 2) {
                             Text("Caffeinate").font(.headline)
-                            Text(subtitle).font(.subheadline).foregroundStyle(.secondary)
+                            Text(subtitle).font(.subheadline.weight(c == nil ? .regular : .semibold))
+                                .foregroundStyle(c == nil ? AnyShapeStyle(.secondary) : AnyShapeStyle(.primary))
                         }
                         Spacer()
                     }
@@ -86,9 +93,9 @@ struct CaffeineTile: View {
                 }
                 .buttonStyle(.plain)
                 GlassEffectContainer(spacing: 2) { HStack(spacing: 6) {
-                    chip("∞", nil); chip("30m", 1800); chip("1h", 3600); chip("2h", 7200)
+                    duration("∞", nil); duration("30m", 1800); duration("1h", 3600); duration("2h", 7200)
                     Spacer()
-                    chip("Screen", nil, flags: "-di", symbol: "display")
+                    screenChip
                 } }
             }
         }
@@ -100,14 +107,30 @@ struct CaffeineTile: View {
         return c.left.map { "\(mode) · \(short($0)) left" } ?? "\(mode) · until stopped"
     }
 
-    func chip(_ label: String, _ secs: Int?, flags: String = "-i", symbol: String? = nil) -> some View {
-        Button { helm.caffeinate(flags, seconds: secs) } label: {
-            Group {
-                if let symbol { Label(label, systemImage: symbol) } else { Text(label) }
-            }
-            .font(.caption.weight(.medium))
-            .padding(.horizontal, 10).padding(.vertical, 5)
-            .glassEffect(.regular.interactive(), in: .capsule)
+    // A duration chip is lit while that preset runs; clicking a lit chip stops caffeinate.
+    func duration(_ label: String, _ secs: Int?) -> some View {
+        let on = helm.caffeine.map { $0.total == secs } ?? false
+        return chip(Text(label), on: on) { on ? helm.caffeinate(nil) : start(secs) }
+    }
+
+    // Screen is a modifier: it keeps the current duration and switches the display on or off.
+    var screenChip: some View {
+        let c = helm.caffeine, on = c?.screen ?? false
+        return chip(Label("Screen", systemImage: "display"), on: on, tint: Art.amber) {
+            helm.caffeinate(on ? "-i" : "-di", seconds: c?.left)
+        }
+    }
+
+    func start(_ secs: Int?) { helm.caffeinate(helm.caffeine?.screen == true ? "-di" : "-i", seconds: secs) }
+
+    func chip<L: View>(_ label: L, on: Bool, tint: Color = Art.orange, action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            label
+                .font(.caption.weight(on ? .bold : .medium))
+                .foregroundStyle(on ? AnyShapeStyle(.white) : AnyShapeStyle(.primary))
+                .padding(.horizontal, 10).padding(.vertical, 5)
+                .background(Capsule().fill(on ? tint : .clear))
+                .glassEffect(.regular.interactive(), in: .capsule)
         }
         .buttonStyle(.plain)
     }

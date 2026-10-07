@@ -89,14 +89,21 @@ struct Pill: View {
                     in: UnevenRoundedRectangle(topLeadingRadius: 11, bottomLeadingRadius: 11))
     }
 
+    // On: a solid orange (amber with the screen kept on) block with white content, so it reads
+    // on light and dark menu bars alike.
     var caffeine: some View {
         let c = helm.caffeine
         return HStack(spacing: 3) {
-            Pixels(grid: Art.cup, cell: 1.5,
-                   color: c == nil ? .primary.opacity(0.35) : (c!.screen ? .yellow : Art.orange))
-            if let c { Text(c.left.map(short) ?? "∞").font(.system(size: 11, weight: .semibold).monospacedDigit()) }
+            Pixels(grid: Art.cup, cell: 1.5, color: c == nil ? .primary.opacity(0.35) : .white)
+            if let c {
+                Text(c.left.map(short) ?? "∞").font(.system(size: 11, weight: .bold).monospacedDigit())
+                    .foregroundStyle(.white)
+                if c.screen { Pixels(grid: Art.screen, cell: 1.5, color: .white) }
+            }
         }
         .padding(.horizontal, 6)
+        .frame(maxHeight: .infinity)
+        .background(c == nil ? AnyShapeStyle(.clear) : AnyShapeStyle(c!.screen ? Art.amber : Art.orange))
     }
 
     var servers: some View {
@@ -131,6 +138,7 @@ struct Pixels: View {
 
 enum Art {
     static let orange = Color(red: 0.85, green: 0.47, blue: 0.34)  // Clawd orange
+    static let amber = Color(red: 0.80, green: 0.55, blue: 0.0)    // screen kept on; dark enough for white text
     static let clawd = [
         "..XXXXXXXX..",
         "..X.XXXX.X..",
@@ -144,6 +152,7 @@ enum Art {
     static let waves = ["X..X.", ".X..X", ".X..X", ".X..X", "X..X."]
     static let pause = ["XX.XX", "XX.XX", "XX.XX", "XX.XX", "XX.XX"]
     static let cup = [".X.X.", "X.X..", ".....", "XXX..", "XXXX.", "XXX.X", "XXXX.", ".XX.."]
+    static let screen = ["XXXXX", "X...X", "X...X", "XXXXX", "..X..", ".XXX."]
     static let rack = ["XXXXX", "X.XXX", ".....", "XXXXX", "X.XXX", ".....", "XXXXX", "X.XXX"]
 }
 
