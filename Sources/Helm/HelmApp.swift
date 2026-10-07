@@ -98,12 +98,6 @@ final class Helm {
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) { self.refreshServers() }
     }
 
-    static func icon(_ path: String, template: Bool) -> NSImage {
-        let img = NSImage(contentsOfFile: root + "/" + path) ?? NSImage()
-        img.isTemplate = template
-        return img
-    }
-
     static func readCaffeine() -> Caffeine? {
         for line in sh("/bin/ps", "-axo", "pid=,etime=,comm=,args=").split(separator: "\n") {
             let f = line.split(separator: " ", omittingEmptySubsequences: true).map(String.init)

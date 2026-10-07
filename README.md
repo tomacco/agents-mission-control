@@ -29,6 +29,6 @@ Known gap: a program that posts mouse events under a name outside the block list
 ./install.sh   # builds Helm.app into ~/Applications, loads both LaunchAgents, registers the hook
 ```
 
-`Helm --preview` opens the pill and panel in a window for 6 s and prints its window number, for `screencapture -o -l <n>` without clicking the menu bar. Icons: `swift make-icons.swift assets`.
+`Helm --preview` opens the pill and panel in a window for 6 s and prints its window number, for `screencapture -o -l <n>` without clicking the menu bar.
 
 The original SwiftBar plugins live in `swiftbar/`. Caffeinate tile calls `swiftbar/caffeinate/caffeinate.5s.sh start|stop`, so runs started from either place are recognised as ours.
