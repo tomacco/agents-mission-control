@@ -1,12 +1,14 @@
 # Helm
 
-Three menu bar icons for working next to local coding agents. Each icon is Clawd plus a small sign of its status; the panels use Liquid Glass.
+One menu bar pill for working next to local coding agents: Clawd │ caffeinate │ localhost. Click Clawd to toggle hands off; click anywhere else for the Liquid Glass panel; right-click to quit.
 
-| Tile | What it does |
+The pill uses the full 22 pt a status item gets on this Mac (the bar is 33 pt) and grows sideways. Everything right of the notch shares 663 pt, so a full bar pushes new items behind the overflow chevron.
+
+| Part | What it shows |
 |---|---|
-| Hands off | Clawd with sound waves = agents may talk; red Clawd with a pause sign = hands off. One left click stops every local agent from speaking, playing sounds or driving the mouse and keyboard. Click again to give control back. Right click for Quit. |
-| Caffeinate | Keeps the Mac awake (∞, 30m, 1h, 2h), or awake with the screen on. |
-| Localhost | Dev servers started from a project under `~`, one row per project. Click a port to open it, right-click to stop it. |
+| Clawd | Orange with sound waves: agents may talk. Red with a pause sign: hands off, so no agent may speak, play sounds or drive the mouse and keyboard. |
+| Cup | Faded when off; orange with time left (or ∞) when awake; yellow when the screen is kept on too. |
+| Rack | Number of projects serving on localhost. The panel lists them; click a port to open it, right-click to stop it. |
 
 ## How hands off works
 
@@ -27,6 +29,6 @@ Known gap: a program that posts mouse events under a name outside the block list
 ./install.sh   # builds Helm.app into ~/Applications, loads both LaunchAgents, registers the hook
 ```
 
-`Helm --preview` opens the panels in a window for 6 s and prints its window number, for `screencapture -o -l <n>` without clicking the menu bar. Icons: `swift make-icons.swift assets`.
+`Helm --preview` opens the pill and panel in a window for 6 s and prints its window number, for `screencapture -o -l <n>` without clicking the menu bar. Icons: `swift make-icons.swift assets`.
 
 The original SwiftBar plugins live in `swiftbar/`. Caffeinate tile calls `swiftbar/caffeinate/caffeinate.5s.sh start|stop`, so runs started from either place are recognised as ours.

@@ -26,6 +26,48 @@ struct Glyph: View {
     }
 }
 
+struct Panel: View {
+    let helm: Helm
+    var body: some View {
+        GlassEffectContainer(spacing: 10) {
+            VStack(spacing: 10) {
+                HandsOffTile(helm: helm)
+                CaffeineTile(helm: helm)
+                ServersTile(helm: helm)
+            }
+        }
+        .padding(12)
+        .frame(width: 340)
+    }
+}
+
+struct HandsOffTile: View {
+    let helm: Helm
+    var body: some View {
+        Button { helm.toggleHandsOff() } label: {
+            Tile {
+                HStack(spacing: 12) {
+                    Glyph(symbol: helm.handsOff ? "hand.raised.fill" : "hand.raised", on: helm.handsOff, tint: .red)
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text(helm.handsOff ? "Hands off" : "Agents").font(.headline)
+                        Text(subtitle).font(.subheadline).foregroundStyle(.secondary)
+                    }
+                    Spacer()
+                }
+                .contentShape(Rectangle())
+            }
+        }
+        .buttonStyle(.plain)
+    }
+
+    var subtitle: String {
+        if !helm.enforcerRunning { return "Enforcer not running (run install.sh)" }
+        guard helm.handsOff else { return "May talk and use the mouse" }
+        let since = helm.handsOffSince.map { $0.formatted(date: .omitted, time: .shortened) } ?? ""
+        return "No voice, sound or mouse · since \(since)"
+    }
+}
+
 struct CaffeineTile: View {
     let helm: Helm
     var body: some View {
