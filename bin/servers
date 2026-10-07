@@ -1,0 +1,23 @@
+#!/bin/zsh
+# Local dev servers run from a project under $HOME, one TSV row each: name port pid cmd cwd title.
+# Same rule as swiftbar/portwatch: system and GUI apps run from /, agent CLIs from $HOME itself.
+export PATH=/usr/bin:/bin:/usr/sbin:/opt/homebrew/bin
+typeset -A seen
+pid= cmd=
+while IFS= read -r line; do
+  case $line in
+    p*) pid=${line#p} ;;
+    c*) cmd=${line#c} ;;
+    n*)
+      port=${line##*:}
+      [[ -n ${seen[$port]} ]] && continue
+      seen[$port]=1
+      cwd=$(lsof -a -p $pid -d cwd -Fn 2>/dev/null | sed -n 's/^n//p')
+      [[ $cwd == $HOME/* ]] || continue
+      top=$(git -C "$cwd" rev-parse --show-toplevel 2>/dev/null)
+      title=$(curl -s -m 0.5 "http://127.0.0.1:$port/" 2>/dev/null \
+        | tr '\n\t' '  ' | sed -n 's/.*<title[^>]*>\([^<]*\)<\/title>.*/\1/Ip' | cut -c1-60)
+      printf '%s\t%s\t%s\t%s\t%s\t%s\n' "${${top:-$cwd}:t}" $port $pid $cmd "$cwd" "$title"
+      ;;
+  esac
+done < <(lsof -nP -iTCP -sTCP:LISTEN -Fpcn 2>/dev/null) | sort

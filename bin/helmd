@@ -1,0 +1,17 @@
+#!/bin/zsh
+# helmd: the enforcer. Runs under launchd. While the hands-off flag exists, kills (every 0.25 s)
+# any process of this user whose name is in the block list: speech, sound cues and UI drivers.
+# Prevention for Claude Code sessions lives in hooks/hands-off-guard.sh; this catches everything else.
+FLAG=${HELM_FLAG:-$HOME/.helm/hands-off}
+BLOCK=${HELM_BLOCK:-'say|afplay|uidriver|cliclick'}
+LOG=${HELM_LOG:-$HOME/Library/Logs/helmd.log}
+uid=$(id -u)
+while true; do
+  if [[ -e $FLAG ]]; then
+    for p in $(/usr/bin/pgrep -U $uid -x "$BLOCK"); do
+      print -r -- "$(date -u +%FT%TZ) killed $p $(/bin/ps -o comm= -p $p)" >> $LOG
+      /bin/kill -9 $p 2>/dev/null
+    done
+  fi
+  sleep 0.25
+done

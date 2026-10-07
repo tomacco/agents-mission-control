@@ -1,0 +1,14 @@
+#!/bin/zsh
+# helmctl: flip "hands off" for local agents. While the flag exists, helmd kills agent voice
+# and synthetic-input processes and the Claude Code hook refuses commands that would start them.
+#   helmctl on | off | toggle | status
+FLAG=${HELM_FLAG:-$HOME/.helm/hands-off}
+mkdir -p ${FLAG:h}
+case ${1:-status} in
+  on)     print -r -- "$(date -u +%FT%TZ) ${2:-manual}" > $FLAG ;;
+  off)    rm -f $FLAG ;;
+  toggle) [[ -e $FLAG ]] && rm -f $FLAG || print -r -- "$(date -u +%FT%TZ) toggle" > $FLAG ;;
+  status) ;;
+  *) print -u2 "usage: helmctl on|off|toggle|status"; exit 2 ;;
+esac
+[[ -e $FLAG ]] && echo "hands-off: ON (agents may not talk or drive the mouse)" || echo "hands-off: off"
