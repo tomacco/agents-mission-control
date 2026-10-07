@@ -1,37 +1,117 @@
 import SwiftUI
 import Observation
 
-// Helm: a Control Center style panel for the local agent fleet.
-// The panel only flips state; enforcement lives in bin/helmd and hooks/hands-off-guard.sh,
+// Helm: menu bar utilities for working next to local agents. Three separate icons:
+// hands off (one click toggles), caffeinate and localhost (each opens its own glass panel).
+// Hands off only flips a flag; enforcement lives in bin/helmd and hooks/hands-off-guard.sh,
 // so the switch keeps working when this app is not running.
 
 @main
 struct HelmApp: App {
-    @State private var helm = Helm()
-
-    init() {
-        // `Helm --snapshot out.png` renders the panel to a file and exits: lets an agent check
-        // the layout without clicking the menu bar.
-        let args = CommandLine.arguments
-        if let i = args.firstIndex(of: "--snapshot"), i + 1 < args.count {
-            let helm = Helm()
-            helm.servers = Server.parse(sh(Helm.root + "/bin/servers"))
-            let r = ImageRenderer(content: Panel(helm: helm).background(Color(white: 0.11)).environment(\.colorScheme, .dark))
-            r.scale = 2
-            if let img = r.nsImage, let tiff = img.tiffRepresentation, let rep = NSBitmapImageRep(data: tiff) {
-                try? rep.representation(using: .png, properties: [:])?.write(to: URL(fileURLWithPath: args[i + 1]))
-            }
-            exit(0)
-        }
-    }
+    @NSApplicationDelegateAdaptor(HandsOffItem.self) private var handsOff
+    @State private var helm = Helm.shared
 
     var body: some Scene {
         MenuBarExtra {
-            Panel(helm: helm)
+            CaffeineTile(helm: helm).padding(10).frame(width: 320)
         } label: {
-            Image(systemName: helm.handsOff ? "hand.raised.fill" : "steeringwheel")
+            CaffeineLabel(helm: helm)
         }
         .menuBarExtraStyle(.window)
+
+        MenuBarExtra {
+            ServersTile(helm: helm).padding(10).frame(width: 340)
+                .onAppear { helm.refreshServers() }
+        } label: {
+            ServersLabel(helm: helm)
+        }
+        .menuBarExtraStyle(.window)
+    }
+}
+
+// Hands off is an emergency stop, so it is a plain status item: left click toggles,
+// right click shows a menu with Quit.
+final class HandsOffItem: NSObject, NSApplicationDelegate {
+    private var item: NSStatusItem!
+    private var timer: Timer?
+
+    func applicationDidFinishLaunching(_ note: Notification) {
+        item = NSStatusBar.system.statusItem(withLength: NSStatusItem.squareLength)
+        item.button?.target = self
+        item.button?.action = #selector(click)
+        item.button?.sendAction(on: [.leftMouseUp, .rightMouseUp])
+        update()
+        timer = Timer.scheduledTimer(withTimeInterval: 1, repeats: true) { [weak self] _ in self?.update() }
+        // `Helm --preview` opens the panels in a plain window and prints its number, so an agent
+        // can capture them (screencapture -o -l <n>) without clicking the menu bar.
+        if CommandLine.arguments.contains("--preview") { Preview.show() }
+    }
+
+    @objc private func click() {
+        if NSApp.currentEvent?.type == .rightMouseUp {
+            let menu = NSMenu()
+            menu.addItem(withTitle: Helm.shared.handsOff ? "Hands off: on" : "Hands off: off", action: nil, keyEquivalent: "")
+            menu.addItem(.separator())
+            menu.addItem(withTitle: "Quit Helm", action: #selector(NSApplication.terminate(_:)), keyEquivalent: "q")
+            item.menu = menu
+            item.button?.performClick(nil)
+            item.menu = nil
+        } else {
+            Helm.shared.toggleHandsOff()
+            update()
+        }
+    }
+
+    private func update() {
+        let h = Helm.shared
+        h.refreshFast()
+        item.button?.image = h.handsOff ? Helm.icon("assets/handsoff-on.png", template: false)
+                                        : Helm.icon("assets/handsoff-idle.png", template: true)
+        item.button?.toolTip = h.handsOff
+            ? "Hands off: agents may not talk or use the mouse. Click to give control back."
+            : (h.enforcerRunning ? "Click to stop agents talking and using the mouse." : "Enforcer not running: run install.sh")
+    }
+}
+
+struct CaffeineLabel: View {
+    let helm: Helm
+    var body: some View {
+        let c = helm.caffeine
+        HStack(spacing: 3) {
+            Image(nsImage: Helm.icon("assets/caffeine-\(c == nil ? "off" : (c!.screen ? "screen" : "awake")).png", template: c == nil))
+            if let left = c?.left { Text(short(left)) }
+        }
+    }
+}
+
+struct ServersLabel: View {
+    let helm: Helm
+    var body: some View {
+        HStack(spacing: 3) {
+            Image(nsImage: Helm.icon("assets/servers-\(helm.servers.isEmpty ? "idle" : "on").png", template: true))
+            if !helm.servers.isEmpty { Text(verbatim: "\(Set(helm.servers.map(\.name)).count)") }
+        }
+        .onAppear { helm.refreshServers() }
+    }
+}
+
+enum Preview {
+    static func show() {
+        let helm = Helm.shared
+        helm.servers = Server.parse(sh(Helm.root + "/bin/servers"))
+        let view = HStack(alignment: .top, spacing: 16) {
+            CaffeineTile(helm: helm).frame(width: 320)
+            ServersTile(helm: helm).frame(width: 340)
+        }
+        .padding(24)
+        .background(LinearGradient(colors: [.blue, .purple, .orange], startPoint: .topLeading, endPoint: .bottomTrailing))
+        let w = NSWindow(contentViewController: NSHostingController(rootView: view))
+        w.styleMask = [.titled, .fullSizeContentView]
+        w.titlebarAppearsTransparent = true
+        w.center()
+        w.makeKeyAndOrderFront(nil)
+        print(w.windowNumber); fflush(stdout)
+        DispatchQueue.main.asyncAfter(deadline: .now() + 6) { exit(0) }
     }
 }
 
@@ -56,6 +136,7 @@ struct Caffeine {
 
 @Observable
 final class Helm {
+    static let shared = Helm()
     static let root = Bundle.main.object(forInfoDictionaryKey: "HelmRoot") as? String
         ?? FileManager.default.homeDirectoryForCurrentUser.appendingPathComponent("git/local/personal/helm").path
     static let flag = FileManager.default.homeDirectoryForCurrentUser.appendingPathComponent(".helm/hands-off")
@@ -66,10 +147,13 @@ final class Helm {
     var caffeine: Caffeine?
     var servers: [Server] = []
     private var timer: Timer?
+    private var serverTimer: Timer?
 
     init() {
         refreshFast()
         timer = Timer.scheduledTimer(withTimeInterval: 2, repeats: true) { [weak self] _ in self?.refreshFast() }
+        refreshServers()
+        serverTimer = Timer.scheduledTimer(withTimeInterval: 10, repeats: true) { [weak self] _ in self?.refreshServers() }
     }
 
     // Cheap state, polled for the menu bar icon.
@@ -115,6 +199,12 @@ final class Helm {
     func kill(_ s: Server) {
         Darwin.kill(s.pid, SIGTERM)
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) { self.refreshServers() }
+    }
+
+    static func icon(_ path: String, template: Bool) -> NSImage {
+        let img = NSImage(contentsOfFile: root + "/" + path) ?? NSImage()
+        img.isTemplate = template
+        return img
     }
 
     static func readCaffeine() -> Caffeine? {

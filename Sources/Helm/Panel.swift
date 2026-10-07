@@ -1,31 +1,7 @@
 import SwiftUI
 
-// Tiles in the style of macOS Control Center: dark rounded modules, a circular glyph that
-// turns solid when the control is on.
-
-struct Panel: View {
-    let helm: Helm
-
-    var body: some View {
-        VStack(spacing: 10) {
-            HandsOffTile(helm: helm)
-            CaffeineTile(helm: helm)
-            ServersTile(helm: helm)
-            HStack {
-                Text("Helm").font(.caption).foregroundStyle(.secondary)
-                Spacer()
-                Button("Quit") { NSApp.terminate(nil) }
-                    .buttonStyle(.plain).font(.caption)
-                    .padding(.horizontal, 10).padding(.vertical, 4)
-                    .background(Capsule().fill(.white.opacity(0.08)))
-            }
-            .padding(.horizontal, 4)
-        }
-        .padding(12)
-        .frame(width: 340)
-        .onAppear { helm.refreshFast(); helm.refreshServers() }
-    }
-}
+// Liquid Glass tiles in the style of Control Center: a circular glyph that turns solid when
+// the control is on, glass capsules for quick actions.
 
 struct Tile<Content: View>: View {
     @ViewBuilder var content: Content
@@ -33,8 +9,7 @@ struct Tile<Content: View>: View {
         content
             .padding(12)
             .frame(maxWidth: .infinity, alignment: .leading)
-            .background(RoundedRectangle(cornerRadius: 22, style: .continuous).fill(.white.opacity(0.07)))
-            .overlay(RoundedRectangle(cornerRadius: 22, style: .continuous).strokeBorder(.white.opacity(0.08)))
+            .glassEffect(.regular, in: .rect(cornerRadius: 22))
     }
 }
 
@@ -47,35 +22,7 @@ struct Glyph: View {
             .font(.system(size: 17, weight: .semibold))
             .foregroundStyle(on ? tint : .primary)
             .frame(width: 40, height: 40)
-            .background(Circle().fill(on ? .white : .white.opacity(0.12)))
-    }
-}
-
-struct HandsOffTile: View {
-    let helm: Helm
-    var body: some View {
-        Button { helm.toggleHandsOff() } label: {
-            Tile {
-                HStack(spacing: 12) {
-                    Glyph(symbol: helm.handsOff ? "hand.raised.fill" : "hand.raised", on: helm.handsOff, tint: .red)
-                    VStack(alignment: .leading, spacing: 2) {
-                        Text(helm.handsOff ? "Hands off" : "Agents").font(.headline)
-                        Text(subtitle).font(.subheadline).foregroundStyle(.secondary)
-                    }
-                    Spacer()
-                }
-            }
-            .contentShape(Rectangle())
-        }
-        .buttonStyle(.plain)
-        .help("Click to stop every local agent from speaking, playing sounds or driving the mouse.")
-    }
-
-    var subtitle: String {
-        if !helm.enforcerRunning { return "Enforcer not running (run install.sh)" }
-        guard helm.handsOff else { return "May talk and use the mouse" }
-        let since = helm.handsOffSince.map { $0.formatted(date: .omitted, time: .shortened) } ?? ""
-        return "No voice, sound or mouse · since \(since)"
+            .glassEffect(on ? .regular.tint(.white) : .regular, in: .circle)
     }
 }
 
@@ -96,11 +43,11 @@ struct CaffeineTile: View {
                     .contentShape(Rectangle())
                 }
                 .buttonStyle(.plain)
-                HStack(spacing: 6) {
+                GlassEffectContainer(spacing: 2) { HStack(spacing: 6) {
                     chip("∞", nil); chip("30m", 1800); chip("1h", 3600); chip("2h", 7200)
                     Spacer()
                     chip("Screen", nil, flags: "-di", symbol: "display")
-                }
+                } }
             }
         }
     }
@@ -118,7 +65,7 @@ struct CaffeineTile: View {
             }
             .font(.caption.weight(.medium))
             .padding(.horizontal, 10).padding(.vertical, 5)
-            .background(Capsule().fill(.white.opacity(0.1)))
+            .glassEffect(.regular.interactive(), in: .capsule)
         }
         .buttonStyle(.plain)
     }
@@ -166,7 +113,7 @@ struct ServersTile: View {
                 Button { NSWorkspace.shared.open(URL(string: "http://localhost:\(s.port)")!) } label: {
                     Text(verbatim: ":\(s.port)").font(.system(.caption, design: .monospaced))
                         .padding(.horizontal, 8).padding(.vertical, 3)
-                        .background(Capsule().fill(.white.opacity(0.1)))
+                        .glassEffect(.regular.interactive(), in: .capsule)
                 }
                 .buttonStyle(.plain)
                 .help(s.title.isEmpty ? s.cmd : s.title)

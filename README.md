@@ -1,10 +1,10 @@
 # Helm
 
-A menu bar panel, in the style of Control Center, for working next to local coding agents.
+Three menu bar icons for working next to local coding agents. Each icon is Clawd plus a small sign of its status; the panels use Liquid Glass.
 
 | Tile | What it does |
 |---|---|
-| Hands off | One click stops every local agent from speaking, playing sounds or driving the mouse and keyboard. Click again to give control back. |
+| Hands off | Clawd with sound waves = agents may talk; red Clawd with a pause sign = hands off. One left click stops every local agent from speaking, playing sounds or driving the mouse and keyboard. Click again to give control back. Right click for Quit. |
 | Caffeinate | Keeps the Mac awake (∞, 30m, 1h, 2h), or awake with the screen on. |
 | Localhost | Dev servers started from a project under `~`, one row per project. Click a port to open it, right-click to stop it. |
 
@@ -27,6 +27,6 @@ Known gap: a program that posts mouse events under a name outside the block list
 ./install.sh   # builds Helm.app into ~/Applications, loads both LaunchAgents, registers the hook
 ```
 
-`Helm --snapshot out.png` renders the panel to a PNG without opening the menu, for checking the layout.
+`Helm --preview` opens the panels in a window for 6 s and prints its window number, for `screencapture -o -l <n>` without clicking the menu bar. Icons: `swift make-icons.swift assets`.
 
 The original SwiftBar plugins live in `swiftbar/`. Caffeinate tile calls `swiftbar/caffeinate/caffeinate.5s.sh start|stop`, so runs started from either place are recognised as ours.

@@ -3,6 +3,6 @@ import PackageDescription
 
 let package = Package(
     name: "Helm",
-    platforms: [.macOS(.v14)],
+    platforms: [.macOS("26.0")],
     targets: [.executableTarget(name: "Helm", path: "Sources/Helm")]
 )
