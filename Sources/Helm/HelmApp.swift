@@ -36,7 +36,7 @@ struct Caffeine {
 final class Helm {
     static let shared = Helm()
     static let root = Bundle.main.object(forInfoDictionaryKey: "HelmRoot") as? String
-        ?? FileManager.default.homeDirectoryForCurrentUser.appendingPathComponent("git/local/personal/helm").path
+        ?? FileManager.default.homeDirectoryForCurrentUser.appendingPathComponent("git/github.com/tomacco/helm").path
     static let flag = FileManager.default.homeDirectoryForCurrentUser.appendingPathComponent(".helm/hands-off")
 
     var handsOff = false
