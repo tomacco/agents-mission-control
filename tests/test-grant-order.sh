@@ -2,7 +2,7 @@
 # Proof that the grant step leaves System Settings in front of Finder. It opens real windows, so it runs
 # against a throwaway test copy and only when hands off is off.
 root=${0:A:h:h}; cd $root
-[[ $(bin/amcctl status) == *ON* ]] && { print "SKIP: hands off is on"; exit 0 }
+[[ -e ~/.agent-board/hands-off ]] && { print "SKIP: hands off is on (Agent Board)"; exit 0 }
 S=$(mktemp -d -t amc-grant); export AMC_CHANNEL=test CLAUDE_CONFIG_DIR=$S/claude AMC_NO_GRANT=1 AMC_PLAIN=1
 trap './uninstall.sh --yes >/dev/null; rm -rf $S' EXIT
 ./install.sh >/dev/null 2>&1 || { print "FAIL install"; exit 1 }

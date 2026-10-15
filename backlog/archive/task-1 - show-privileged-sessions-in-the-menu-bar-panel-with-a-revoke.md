@@ -1,7 +1,7 @@
 ---
 id: task-1
 title: Show privileged sessions in the menu bar panel with a revoke button
-status: To Do
+status: Cancelled
 assignee: []
 created_date: 2026-10-15
 updated_date: 2026-10-15
@@ -20,6 +20,10 @@ The app keeps leases in MissionControl.leases; no tile draws them. Privileged.re
 
 ## Handoff
 
+- 2026-10-15 10:43Z · Iván González@agents-mission-control · main: Cancelled: the app has no menu bar item since 0.2.0 Next: Revoking could live in the plugin pane
+
 ## Evidence
 
 ## Final Summary
+
+Cancelled: No menu bar item since 0.2.0 (companies may block unknown apps; the plugin is the UI)

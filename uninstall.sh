@@ -1,5 +1,5 @@
 #!/bin/zsh
-# Remove Agents Mission Control from this Mac: the app, both LaunchAgents, the Claude Code hook, its
+# Remove Agents Mission Control from this Mac: the app, its LaunchAgent (and the 0.1.0 enforcer and hook), its
 # folder (~/.amc, with the trace log and run output) and every macOS permission granted to it.
 #   ./uninstall.sh              asks before deleting the folder
 #   ./uninstall.sh --yes        no questions (scripts, tests)

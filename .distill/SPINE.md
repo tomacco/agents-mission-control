@@ -1,15 +1,15 @@
-# agents-mission-control — Knowledge Spine
+# agents-mission-control: knowledge spine
 
 <!-- repo-distill Tier-1 index. Max 80 lines. Pointers only, NO content. -->
 
 _Last full distillation: 2026-10-15 · repo state: v0.1.0_
 
 ## Knowledge
-- [Architecture](knowledge/architecture.md) — the app, scripts, hook, plugin and where state lives; read before touching cross-cutting code or adding a component.
-- [Conventions](knowledge/conventions.md) — commit format, script language, code style; read before writing code or committing.
-- [Workflows](knowledge/workflows.md) — build, install, test, preview, plugin checks, release; read before running or shipping anything.
-- [Gotchas](knowledge/gotchas.md) — traps that cost time here; read before debugging, installing or testing.
-- [Glossary](knowledge/glossary.md) — hands off, lease, key, trace, mod; read when a term is unfamiliar.
+- [Architecture](knowledge/architecture.md): the app, socket, plugin, installer and where state lives; read before touching cross-cutting code or adding a component.
+- [Conventions](knowledge/conventions.md): commit format, script language, code style; read before writing code or committing.
+- [Workflows](knowledge/workflows.md): build, install, test copies, plugin checks, release; read before running or shipping anything.
+- [Gotchas](knowledge/gotchas.md): traps that cost time here; read before debugging, installing or testing.
+- [Glossary](knowledge/glossary.md): privileged session, lease, approval, trace, channel; read when a term is unfamiliar.
 
 Review culture is not distilled: one author, no merge commits (evidence: git log, 9 commits, 0 merges).
 

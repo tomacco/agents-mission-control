@@ -8,4 +8,4 @@ APPNAME="Agents Mission Control${CH:+ ($CH)}"
 APPFILE=AgentsMissionControl${CH:+-$CH}.app
 AMC_HOME=$HOME/.amc${CH:+-$CH}
 CLAUDE_DIR=${CLAUDE_CONFIG_DIR:-$HOME/.claude}
-export AMC_SOCKET=$AMC_HOME/amc.sock AMC_FLAG=$AMC_HOME/hands-off
+export AMC_SOCKET=$AMC_HOME/amc.sock

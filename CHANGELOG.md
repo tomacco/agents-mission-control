@@ -1,7 +1,10 @@
 # Changelog
 
-## Unreleased
+## 0.2.0 (2026-10-15)
 
+Split: this repository is now only privileged sessions. The menu bar pill (hands off, caffeinate, localhost) moved to [Agent Board](https://github.com/tomacco/agent-board).
+
+- The app has no menu bar item; the installer and the Claude Code plugin are what the person sees. `install.sh` removes the 0.1.0 enforcer and hook.
 - Security: the app asks for Touch ID (or the login password) before it opens access for a session. In a test an agent reached the socket itself and opened access without the person; session keys are gone, Touch ID is the only approval.
 - Commands run with `pipefail`.
 - The plugin sets itself up on the first prompt when installed in the middle of a session.
