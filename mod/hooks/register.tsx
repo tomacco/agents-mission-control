@@ -22,8 +22,24 @@ const DENIED = /Operation not permitted|permission to view it|EPERM/
 
 type Reply = { error?: string; key?: string; fda?: boolean; exit?: number; log?: string; bytes?: number; sha256?: string; timed_out?: boolean }
 
+// The socket client lives here, so the plugin works when installed alone from the marketplace.
+const CLIENT = [
+  'import os, socket, sys',
+  's = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)',
+  'try: s.connect(sys.argv[1])',
+  'except OSError as e: print(\'{"error": "Agents Mission Control is not running (%s)"}\' % e.strerror); sys.exit(0)',
+  's.sendall(sys.stdin.read().strip().encode() + b"\\n")',
+  'buf = b""',
+  'while not buf.endswith(b"\\n"):',
+  '    c = s.recv(65536)',
+  '    if not c: break',
+  '    buf += c',
+  'sys.stdout.write(buf.decode())',
+].join('\n')
+
 async function call($: EngineInterface, req: Record<string, unknown>, timeoutMs = 15000): Promise<Reply> {
-  const { stdout } = await $.process.run([`${$.plugin.root}/../bin/amc-call`], { stdin: JSON.stringify(req), timeoutMs })
+  const socket = (await $.env.get('AMC_SOCKET')) || `${await $.env.get('HOME')}/.amc/amc.sock`
+  const { stdout } = await $.process.run(['/usr/bin/python3', '-I', '-c', CLIENT, socket], { stdin: JSON.stringify(req), timeoutMs })
   try { return JSON.parse(stdout) } catch { return { error: `no reply from Agents Mission Control: ${stdout.slice(0, 200)}` } }
 }
 
@@ -150,8 +166,8 @@ export const register: Register = on => {
     $.ui.status(`🔒 ${who.agent}: privileged run${opened.isPlaced ? '' : ` (${e.command.slice(0, 50)})`}`)
 
     // Live output for the pane while the app runs the command.
-    const home = await $.env.get('HOME')
-    const live = $.process.spawn({ argv: ['/usr/bin/tail', '-n', '+1', '-F', `${home}/.amc/runs/${id}.log`] })
+    const sock = (await $.env.get('AMC_SOCKET')) || `${await $.env.get('HOME')}/.amc/amc.sock`
+    const live = $.process.spawn({ argv: ['/usr/bin/tail', '-n', '+1', '-F', sock.replace(/amc\.sock$/, `runs/${id}.log`)] })
     void (async () => {
       try {
         for await (const piece of live) {

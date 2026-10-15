@@ -24,7 +24,8 @@ struct Lease: Codable {
 
 final class Privileged {
     static let shared = Privileged()
-    static let dir = FileManager.default.homeDirectoryForCurrentUser.appendingPathComponent(".amc")
+    static let dir = (Bundle.main.object(forInfoDictionaryKey: "AMCHome") as? String).map { URL(fileURLWithPath: $0) }
+        ?? FileManager.default.homeDirectoryForCurrentUser.appendingPathComponent(".amc")
     static let socketPath = ProcessInfo.processInfo.environment["AMC_SOCKET"] ?? dir.appendingPathComponent("amc.sock").path
     static let tracePath = ProcessInfo.processInfo.environment["AMC_TRACE"] ?? dir.appendingPathComponent("trace.jsonl").path
     static let runsDir = dir.appendingPathComponent("runs")

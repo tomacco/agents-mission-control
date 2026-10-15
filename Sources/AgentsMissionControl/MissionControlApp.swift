@@ -37,7 +37,7 @@ final class MissionControl {
     static let shared = MissionControl()
     static let root = Bundle.main.object(forInfoDictionaryKey: "AMCRoot") as? String
         ?? FileManager.default.homeDirectoryForCurrentUser.appendingPathComponent("git/github.com/tomacco/agents-mission-control").path
-    static let flag = FileManager.default.homeDirectoryForCurrentUser.appendingPathComponent(".amc/hands-off")
+    static let flag = Privileged.dir.appendingPathComponent("hands-off")
 
     var handsOff = false
     var handsOffSince: Date?

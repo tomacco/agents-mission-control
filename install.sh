@@ -3,18 +3,22 @@
 # and register the Claude Code hook. Idempotent.
 set -e
 cd "${0:A:h}"; ROOT=$PWD
+source ./channel.sh
 ./build.sh
-mkdir -p ~/Applications && rm -rf ~/Applications/AgentsMissionControl.app && cp -R build/AgentsMissionControl.app ~/Applications/
+mkdir -p ~/Applications && rm -rf ~/Applications/$APPFILE && cp -R build/$APPFILE ~/Applications/
 LA=~/Library/LaunchAgents
 for name in amcd app; do
-  plist=$LA/co.tomac.amc.$name.plist
-  sed "s|@ROOT@|$ROOT|g; s|@HOME@|$HOME|g" launchd/co.tomac.amc.$name.plist > $plist
+  plist=$LA/$ID.$name.plist
+  sed "s|@ROOT@|$ROOT|g; s|@HOME@|$HOME|g; s|@ID@|$ID|g; s|@SUF@|$SUF|g; s|@AMCHOME@|$AMC_HOME|g; s|@APPFILE@|$APPFILE|g" \
+    launchd/co.tomac.amc.$name.plist > $plist
   launchctl bootout gui/$(id -u) $plist 2>/dev/null || true
   launchctl bootstrap gui/$(id -u) $plist
 done
-python3 - "$ROOT/hooks/hands-off-guard.sh" <<'PY'
+hook=$ROOT/hooks/hands-off-guard.sh; [[ -n $CH ]] && hook="AMC_FLAG=$AMC_FLAG $hook"
+mkdir -p "$CLAUDE_DIR"; [[ -f $CLAUDE_DIR/settings.json ]] || print "{}" > "$CLAUDE_DIR/settings.json"
+python3 - "$hook" "$CLAUDE_DIR/settings.json" <<'PY'
 import json, os, sys
-p = os.path.expanduser("~/.claude/settings.json"); hook = sys.argv[1]
+hook, p = sys.argv[1], sys.argv[2]
 s = json.load(open(p))
 pre = s.setdefault("hooks", {}).setdefault("PreToolUse", [])
 if not any(h.get("command") == hook for e in pre for h in e.get("hooks", [])):
@@ -23,16 +27,16 @@ if not any(h.get("command") == hook for e in pre for h in e.get("hooks", [])):
     json.dump(s, open(p, "w"), indent=2); open(p, "a").write("\n")
     print("hook registered")
 PY
-echo "Agents Mission Control installed. Proof: tests/test-hands-off.sh"
+echo "$APPNAME installed. Proof: tests/test-hands-off.sh"
 
 # Full Disk Access: macOS has no prompt for it, so open the one toggle, show the app ready to drag in, and wait.
 call=$ROOT/bin/amc-call
 for i in {1..20}; do print '{"op":"status"}' | $call | grep -q '"leases"' && break; sleep 0.5; done
-if print '{"op":"status"}' | $call | grep -q '"fda":false'; then
+if [[ -z $AMC_NO_GRANT ]] && print '{"op":"status"}' | $call | grep -q '"fda":false'; then
   print '{"op":"grant"}' | $call >/dev/null
-  [[ -f ~/.amc/hands-off ]] || afplay /System/Library/Sounds/Glass.aiff &!
+  [[ -f $AMC_FLAG ]] || afplay /System/Library/Sounds/Glass.aiff &!
   print "\nPrivileged sessions need Full Disk Access. System Settings and Finder are open:"
-  print "drag AgentsMissionControl.app into the Full Disk Access list (or press + and pick it), then switch it on."
+  print "drag $APPFILE into the Full Disk Access list (or press + and pick it), then switch it on."
   if [[ -t 1 ]]; then
     print "Waiting for it... (Ctrl-C to skip; the menu bar panel offers it again later)"
     until print '{"op":"status"}' | $call 2>/dev/null | grep -q '"fda":true'; do sleep 2; done
