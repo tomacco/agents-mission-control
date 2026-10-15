@@ -24,7 +24,7 @@ staleness_threshold: 60
   confidence: validated
 
 ## Plugin
-- `claude plugin validate mod` and `claude plugin validate .`; run a session with it: `claude --plugin-dir mod`. evidence: mod/
+- `claude plugin test mod` (pane drawing, relative times, order), `claude plugin validate mod` and `claude plugin validate .`; run a session with it: `claude --plugin-dir mod`. evidence: mod/
   confidence: validated
 
 ## Release

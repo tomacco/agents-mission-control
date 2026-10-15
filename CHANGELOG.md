@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Plugin 0.2.2: the pane shows a lock (open while access is granted, in a color per session) in place of Clawd, the newest run on top with a relative time ("a minute ago"), and closes 90 s after the last run. Above the prompt it says how to get the side panel (fullscreen in /config). Fixed: an unset color made Claude Code refuse the whole pane, and the pane read its width and placement from the wrong place. Plugin tests: `claude plugin test mod`.
+- `tests/try-install.sh` copies your Claude Code layout setting into its throwaway config.
 - Plugin 0.2.1: a `timeout_seconds` of 600 made the app call exceed Claude Code's ten-minute process limit, the hook threw and the agent read "no tool.call hook answered". Runs are capped at 585 s, failures inside the hook come back as a clear refusal, and the pane no longer sticks on a run that failed.
 - The installer offers to install the Claude Code plugin itself (one Y), since a manual `/plugin install` step was skipped in testing. `tests/try-install.sh` installs it into its throwaway config and puts the test prompt on the clipboard.
 

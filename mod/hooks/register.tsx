@@ -2,6 +2,7 @@ import { atom, read, update } from 'claude-code'
 import type { EngineInterface, Register } from 'claude-code'
 
 import type { Identity, LeaseView, RunView } from '../types'
+import { ago, newestFirst } from './format'
 
 // Full Disk Access for agents without giving it to Terminal. Agents Mission Control (the menu bar app) holds
 // the grant, asks the person with Touch ID before it opens access for a session, and runs the commands as
@@ -13,6 +14,7 @@ const color = atom({ ...S, key: 'color' } as const, '')
 const identity = atom({ ...S, key: 'identity' } as const, null as Identity | null)
 const lease = atom({ ...S, key: 'lease' } as const, null as LeaseView | null)
 const runs = atom({ ...S, key: 'runs' } as const, [] as RunView[])
+const tick = atom({ ...S, key: 'tick' } as const, 0)  // bumped every 30 s so relative times redraw
 
 const TOOL = 'privileged_bash'
 const PANE = 'amc'
@@ -43,6 +45,7 @@ async function call($: EngineInterface, req: Record<string, unknown>, timeoutMs 
 }
 
 const APPROVAL_MS = 150000  // the app waits up to 2 minutes for Touch ID
+const COLLAPSE_MS = 90000  // the pane closes this long after the last run ends; the next run opens it again
 const MAX_RUN_S = 585       // $.process.run allows ten minutes; the app's run plus a margin must fit inside
 
 // The app forgets leases when it restarts (macOS relaunches it when Full Disk Access is switched on):
@@ -58,9 +61,15 @@ async function send($: EngineInterface, req: Record<string, unknown>, timeoutMs?
   return r
 }
 
+// The lock, one cell per pixel drawn as two columns of background color (glyphs leave seams). The shackle
+// is open while the session holds Full Disk Access. "." is the keyhole, " " is empty.
+const LOCK_OPEN = ['  XXX  ', ' X   X ', ' X     ', 'XXXXXXX', 'XXX.XXX', 'XXXXXXX']
+const LOCK_SHUT = ['       ', '  XXX  ', ' X   X ', 'XXXXXXX', 'XXX.XXX', 'XXXXXXX']
+
 // Installed in the middle of a session, the plugin misses session.start; the first prompt sets it up instead.
 async function setUp($: EngineInterface) {
   if (!(await read($, color))) await update($, color, () => COLORS[Math.floor(Math.random() * COLORS.length)])
+  $.clock.every(30000, () => void update($, tick, n => n + 1))
   const st = await call($, { op: 'status' })
   if (st.error) $.ui.status('⚠ Agents Mission Control is not running: privileged sessions are off')
   else if (st.fda === false) $.ui.status('⚠ Agents Mission Control has no Full Disk Access yet (asked on first use)')
@@ -101,6 +110,7 @@ async function waitForAccess($: EngineInterface): Promise<boolean> {
 
 export const register: Register = on => {
   let isSetUp = false
+  let collapse: { cancel: () => void } | undefined
   on('session.start', async ($, e, next) => {
     const started = await next(e)
     await setUp($); isSetUp = true
@@ -153,7 +163,8 @@ export const register: Register = on => {
 
     const opened = await $.ui.open({ id: PANE, title: 'Privileged', columns: 36 })
     const id = `r${Date.now().toString(36)}${Math.random().toString(36).slice(2, 6)}`
-    const run: RunView = { id, command: String(e.command), reason: String(e.reason), exit: null, tail: [] }
+    const run: RunView = { id, command: String(e.command), reason: String(e.reason), exit: null, tail: [], at: Date.now() }
+    collapse?.cancel()
     await update($, runs, list => [...list, run].slice(-20))
     $.ui.status(`🔒 ${who.agent}: privileged run${opened.isPlaced ? '' : ` (${e.command.slice(0, 50)})`}`)
 
@@ -180,6 +191,7 @@ export const register: Register = on => {
     }
     await live.return?.(undefined as never)
     await update($, runs, list => list.map(x => (x.id === id ? { ...x, exit: r.exit ?? -1 } : x)))
+    collapse = $.clock.after(COLLAPSE_MS, () => void $.ui.close({ id: PANE }))
     if ((await read($, lease))?.scope === 'once') await update($, lease, () => null)
     $.ui.status(`🔒 ${who.agent}: privileged session`)
     if (r.error) return { deny: `amc: ${r.error}` }
@@ -206,29 +218,43 @@ export const register: Register = on => {
 
   on('ui.render', { component: 'Pane', requestId: PANE }, async ($, e: any) => {
     const { Box, Text } = $.ui.resolve(e)
-    const [c, who, l, list] = await Promise.all([read($, color), read($, identity), read($, lease), read($, runs)])
-    const narrow = (e.bodyColumns ?? 36) < 30
+    const [stored, who, l, list] = await Promise.all([read($, color), read($, identity), read($, lease), read($, runs), read($, tick)])
+    const c = stored || COLORS[0]  // an empty color makes the engine refuse the whole pane
+    const narrow = (e.props?.bodyColumns ?? 36) < 30
+    const now = Date.now()
+    const lock = (l ? LOCK_OPEN : LOCK_SHUT).map(row => (
+      <Box flexDirection="row">
+        {row.split('').map(px => px === 'X' ? <Text backgroundColor={c}>{'  '}</Text>
+          : px === '.' ? <Text backgroundColor="#281A2E">{'  '}</Text> : <Text>{'  '}</Text>)}
+      </Box>
+    ))
+    // The shackle is steel: repaint its rows (all above the body) grey.
+    const shackleRows = 3
+    const steel = (l ? LOCK_OPEN : LOCK_SHUT).slice(0, shackleRows).map(row => (
+      <Box flexDirection="row">
+        {row.split('').map(px => px === 'X' ? <Text backgroundColor="#B4B4C3">{'  '}</Text> : <Text>{'  '}</Text>)}
+      </Box>
+    ))
     return (
       <Box flexDirection="column">
         <Box flexDirection="row">
-          <Box flexDirection="column">
-            <Text color={c}>{' ▐▛███▜▌'}</Text>
-            <Text color={c}>{'▝▜█████▛▘'}</Text>
-            <Text color={c}>{'  ▘▘ ▝▝'}</Text>
-          </Box>
-          <Box flexDirection="column" marginLeft={1}>
+          <Box flexDirection="column">{[...steel, ...lock.slice(shackleRows)]}</Box>
+          <Box flexDirection="column" marginLeft={2}>
+            <Text> </Text>
             <Text bold>{who?.agent ?? 'agent'}</Text>
             <Text dimColor>{who?.subtitle ?? ''}</Text>
             <Text color={l ? 'warning' : undefined}>{l ? `Full Disk Access · ${l.scope === 'once' ? 'once' : 'this session'}` : 'no access'}</Text>
           </Box>
         </Box>
+        {e.props?.placement === 'inline' && <Text dimColor>Tip: fullscreen in /config shows this beside the transcript.</Text>}
         {l && !narrow && <Text>Why: {l.reason}</Text>}
         {l && !narrow && l.paths.map(p => <Text dimColor>{p}</Text>)}
-        {list.slice(narrow ? -2 : -5).map(r => (
+        {newestFirst(list, narrow ? 2 : 5).map(r => (
           <Box flexDirection="column" marginTop={1}>
             <Text color={r.exit === null ? 'warning' : r.exit === 0 ? 'success' : 'error'}>
               {r.exit === null ? '…' : r.exit === 0 ? '✓' : `✗ ${r.exit}`} {r.command}
             </Text>
+            <Text dimColor>{r.exit === null ? 'running' : ago(now - (r.at ?? now))}</Text>
             {!narrow && r.tail.slice(-4).map(t => <Text dimColor>{t}</Text>)}
           </Box>
         ))}
