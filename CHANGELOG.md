@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- Plugin 0.2.4: `/amc` shows the pane on demand with the session's access and the app's state. The "no Full Disk Access" hint now needs a failed call (an error, or a command's stderr); a successful search whose output contains the words no longer triggers it.
 - The app stays up: launchd runs its binary with KeepAlive, so it comes back seconds after macOS quits it (switching on Full Disk Access does) or it crashes; a copy macOS reopens on its own steps aside. `install.sh` now restarts the app. Plugin 0.2.3 starts the app itself when it finds it not running. Proof: `tests/test-keepalive.sh`.
 - Installer: a big pulsing YOUR TURN banner (with a chime) before the Full Disk Access step, and a big ALL SET! that wipes in under falling confetti once access is on.
 - Plugin 0.2.2: the pane shows a lock (open while access is granted, in a color per session) in place of Clawd, the newest run on top with a relative time ("a minute ago"), and closes 90 s after the last run. Above the prompt it says how to get the side panel (fullscreen in /config). Fixed: an unset color made Claude Code refuse the whole pane, and the pane read its width and placement from the wrong place. Plugin tests: `claude plugin test mod`.

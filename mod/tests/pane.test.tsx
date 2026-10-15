@@ -40,3 +40,17 @@ test('the pane draws, and says how to get the side panel when it sits above the 
   const inline = texts(await ui.drawn()).join('|')
   expect(inline).toContain('fullscreen in /config')
 })
+
+// The hint after "Operation not permitted": the test's own Bash stands for the real tool beneath the plugin.
+const HINT = /no Full Disk Access/
+test('no hint when the words only appear in successful output', async ($, on) => {
+  on('tool.call', { tool: 'Bash' }, () => ({ result: { stdout: "const DENIED = /Operation not permitted/", stderr: '' } }) as never)
+  const ran = await $.tool.call({ tool: 'Bash', command: 'grep -r Operation .' } as never)
+  expect(JSON.stringify(ran)).not.toMatch(HINT)
+})
+
+test('a hint when a command failed on it', async ($, on) => {
+  on('tool.call', { tool: 'Bash' }, () => ({ result: { stdout: '', stderr: 'ls: ~/Library/Mail: Operation not permitted' } }) as never)
+  const ran = await $.tool.call({ tool: 'Bash', command: 'ls ~/Library/Mail' } as never)
+  expect(JSON.stringify(ran)).toMatch(HINT)
+})

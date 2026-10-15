@@ -36,6 +36,7 @@ The app has no menu bar item and no window. Everything you see happens in the in
 2. The first call of a session makes the app ask you for Touch ID (or your password), showing the agent, the reason and the paths. That approval covers the session and ends with it.
 3. While access is open, a pane beside the transcript shows the agent, the reason, the paths and each command's live output. Narrow terminals get a status line.
 4. When a Bash or Read call fails with "Operation not permitted", the plugin tells the agent that `privileged_bash` exists.
+5. `/amc` shows the pane on demand: whether the session has access, whether the app has Full Disk Access, and the latest runs. The pane closes by itself 90 s after the last run.
 
 ## Security model
 
