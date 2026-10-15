@@ -5,7 +5,6 @@ export type RunView = { id: string; command: string; reason: string; exit: numbe
 declare module 'claude-code' {
   interface PluginState {
     amc: {
-      key: string
       color: string
       identity: Identity | null
       lease: LeaseView | null

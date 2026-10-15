@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- Security: the app asks for Touch ID (or the login password) before it opens access for a session. In a test an agent reached the socket itself and opened access without the person; session keys are gone, Touch ID is the only approval.
+- Commands run with `pipefail`.
+- The plugin sets itself up on the first prompt when installed in the middle of a session.
 - Animated installer in the terminal: steps with progress, the code signature shown with its signer, and Full Disk Access explained (with a short drawing of the two moves) before any window opens. N is accepted; the panel and Claude Code ask again later.
 - `AMC_CHANNEL=test` installs a separate copy; `uninstall.sh` removes an install and its permissions; `tests/try-install.sh` tries the whole install and cleans up.
 - Full Disk Access setup with the least friction macOS allows: `install.sh`, the panel and the plugin open the settings pane and show the app in Finder ready to drag in, then wait for the switch and carry on.

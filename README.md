@@ -50,23 +50,26 @@ Known gap: a program that posts mouse events under a name outside the block list
 macOS grants Full Disk Access per app. Giving it to Terminal gives it to every process started from Terminal, forever. Here the app holds the grant instead, and runs an agent's commands as its own child processes, which inherit it. Terminal stays without it.
 
 1. The `amc` plugin gives each Claude Code session the tool `privileged_bash` (command, reason, paths, agent name, subtitle).
-2. The first call of a session opens a keyboard-first question: Allow for this session, Allow once, or Deny. The answer lives in the session's state only, so a new session always asks again.
+2. The first call of a session makes the app ask you for Touch ID (or your password), showing the agent, the reason and the paths. That approval covers the session and ends with it, so a new session always asks again.
 3. While access is open, a pane beside the transcript shows a Clawd in a random color, the agent, the reason, the paths and each command's live output. Narrow terminals get a status line.
 4. When a Bash or Read call fails with "Operation not permitted", the plugin tells the agent that `privileged_bash` exists.
 
 Security model:
 
 - The app listens on `~/.amc/amc.sock` (mode 0600) and accepts requests only from processes that descend from a Claude Code binary signed by Anthropic, checked against the running process.
-- The first caller in a Claude Code process gets that process's key. The plugin asks for it at session start, before the model can run anything.
+- Only a person opens access: the app asks for Touch ID or the login password. An agent can reach the socket and could post synthetic clicks, but it cannot pass Touch ID.
+- Commands run with `pipefail`, so a failure anywhere in a pipe shows in the exit code.
 - Access ends with the approval scope, or when the session's `claude` process exits.
 - Every request goes to `~/.amc/trace.jsonl` with the agent, reason, command, exit code and SHA-256 of the output. Each line holds the hash of the previous one. Output is kept in `~/.amc/runs/`.
 
-Known gaps: any process running as you can read `~/.amc/runs`, and the logs are not expired yet. A plugin loaded late into a running session (hot reload) can lose the key to the agent.
+Known gap: any process running as you can read `~/.amc/runs`, and the logs are not expired yet.
 
 ## Tests
 
 - `tests/test-hands-off.sh` runs against a private flag, so it never touches the live switch: a running driver dies, new speech dies before it is heard, the hook blocks voice, sound and input commands, ordinary commands still pass, and turning the switch off gives control back.
-- `tests/test-privileged.sh` runs against the installed app, from a Claude Code session without the plugin (`! zsh tests/test-privileged.sh`): a caller outside Claude Code is refused, a bad key and a run without approval are refused, an approved command reads `~/Library/Mail` while Terminal still cannot, a one-time approval is used up, and the trace chain verifies.
+- `tests/test-privileged.sh` runs against the installed app from a Claude Code session (`! zsh tests/test-privileged.sh`): a caller outside Claude Code and a run without approval are refused, and the trace chain verifies. With `--touch-id` it also approves twice and checks that an approved command reads `~/Library/Mail` while Terminal still cannot, that a one-time approval is used up, and that pipe failures show.
+- `tests/test-grant-order.sh` checks that the grant step leaves System Settings in front of Finder.
+- `tests/try-install.sh` tries the whole install as a new user, then removes it.
 
 ## Development
 

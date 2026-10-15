@@ -19,6 +19,8 @@ If the plugin loads after the model ran commands, the agent may have taken the s
 
 ## Handoff
 
+- 2026-10-15 10:01Z · Iván González@agents-mission-control · main: Superseded: session keys removed; Touch ID in the app is the approval (decision-3) Next: none
+
 ## Evidence
 
 ## Final Summary
