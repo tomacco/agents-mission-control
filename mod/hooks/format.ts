@@ -15,3 +15,14 @@ export function ago(ms: number): string {
 export function newestFirst(list: readonly RunView[], n: number): RunView[] {
   return list.slice(-n).reverse()
 }
+
+// Without PortCall or a name from the model, a session still needs one a person can tell apart.
+export const GENERIC = /^(claude([ -]code)?|agent|assistant|ai|model|unknown|)$/i
+const ADJ = ['Amber', 'Brisk', 'Calm', 'Clever', 'Coral', 'Swift', 'Lunar', 'Mellow', 'Nimble', 'Quiet', 'Rapid', 'Silver', 'Steady', 'Sunny', 'Tidy', 'Vivid']
+const NOUN = ['Falcon', 'Otter', 'Heron', 'Lynx', 'Badger', 'Comet', 'Fox', 'Ibis', 'Koala', 'Marten', 'Orca', 'Puffin', 'Raven', 'Tern', 'Walrus', 'Wren']
+export function sessionName(sessionId: string): string {
+  let h = 0
+  for (const ch of sessionId) h = (h * 31 + ch.charCodeAt(0)) >>> 0
+  return `${ADJ[h % ADJ.length]} ${NOUN[(h >>> 8) % NOUN.length]}`
+}
+

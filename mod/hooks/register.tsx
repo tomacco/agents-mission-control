@@ -2,7 +2,7 @@ import { atom, read, update } from 'claude-code'
 import type { EngineInterface, Register } from 'claude-code'
 
 import type { Identity, LeaseView, RunView } from '../types'
-import { ago, newestFirst } from './format'
+import { GENERIC, ago, newestFirst, sessionName } from './format'
 
 // Full Disk Access for agents without giving it to Terminal. Agents Mission Control (the menu bar app) holds
 // the grant, asks the person with Touch ID before it opens access for a session, and runs the commands as
@@ -16,10 +16,29 @@ const lease = atom({ ...S, key: 'lease' } as const, null as LeaseView | null)
 const runs = atom({ ...S, key: 'runs' } as const, [] as RunView[])
 const tick = atom({ ...S, key: 'tick' } as const, 0)  // bumped every 30 s so relative times redraw
 const spin = atom({ ...S, key: 'spin' } as const, 0)  // bumped while a command runs, for the spinner
+const asking = atom({ ...S, key: 'asking' } as const, null as { reason: string; paths: string[] } | null)  // Touch ID is up
 
 const TOOL = 'privileged_bash'
 const PANE = 'amc'
-const COLORS = ['#D97757', '#E5484D', '#30A46C', '#3E63DD', '#8E4EC6', '#F76B15', '#12A594', '#D6409F', '#FFC53D']
+// One palette for the pane: a soft accent per session, and fixed colors for state, readable on light and dark.
+const COLORS = ['#E8836B', '#E5678F', '#9B7BE0', '#6E8BF0', '#3FB8AF', '#5CC98A', '#E8B04A', '#4FB3E8']
+const P = {
+  steel: '#A7AEC0', keyhole: '#1E1A26', ok: '#4CC38A', bad: '#F06A6A', busy: '#E8B04A',
+  open: '#2F9E6E', openText: '#FFFFFF', shut: '#2E3140', shutText: '#AEB4C6', touch: ['#FF6B8B', '#FF2D55'],
+}
+
+// Touch ID, drawn with rounded box lines (they join without seams); a scan line moves down while it waits.
+const FINGERPRINT = [
+  '    ╭───────╮    ',
+  '  ╭─╯ ╭───╮ ╰─╮  ',
+  ' ╭╯ ╭─╯╭─╮╰─╮ ╰╮ ',
+  ' │ ╭╯ ╭╯ ╰╮ ╰╮ │ ',
+  ' │ │  │ │ │  │ │ ',
+  ' │ │  │ │ ╰╮ │ │ ',
+  ' ╰╮│  │ ╰╮ │ │╭╯ ',
+  '  │╰╮ ╰╮ │ ╰╮│  ',
+  '  ╰╮╰╮ ╰─╯  ╰╯  ',
+]
 const DENIED = /Operation not permitted|permission to view it|EPERM/
 
 type Reply = { error?: string; fda?: boolean; exit?: number; log?: string; bytes?: number; sha256?: string; timed_out?: boolean }
@@ -106,12 +125,12 @@ async function setUp($: EngineInterface) {
         command: { type: 'string', description: 'The zsh command to run (pipefail is on).' },
         reason: { type: 'string', description: 'Why this access is needed, one sentence the person will read.' },
         paths: { type: 'array', items: { type: 'string' }, description: 'The protected paths it touches.' },
-        agent: { type: 'string', description: 'Your agent name (first call pins it for the session).' },
-        subtitle: { type: 'string', description: 'Short context of this session, up to 8 words (pinned on first call).' },
+        agent: { type: 'string', description: 'Your agent name if you have one (for example from PortCall); leave it out otherwise and the session gets one. The first call pins it.' },
+        subtitle: { type: 'string', description: 'Short context of this session, up to 8 words; defaults to the project folder. The first call pins it.' },
         cwd: { type: 'string' },
         timeout_seconds: { type: 'number', description: 'Default 120, at most 585.' },
       },
-      required: ['command', 'reason', 'paths', 'agent', 'subtitle'],
+      required: ['command', 'reason', 'paths'],
     },
   })
 }
@@ -145,7 +164,12 @@ export const register: Register = on => {
     if (st.error) return { deny: `amc: ${st.error}. Tell the person to install or start Agents Mission Control.` }
     let who = await read($, identity)
     if (!who) {
-      who = { agent: String(e.agent).slice(0, 40), subtitle: String(e.subtitle).slice(0, 80) }
+      const named = String(e.agent ?? '').trim(), sid = String(e.session_id ?? '')
+      const folder = String(e.cwd ?? '').split('/').filter(Boolean).pop() ?? ''
+      who = {
+        agent: (GENERIC.test(named) ? sessionName(sid || String(Date.now())) : named).slice(0, 40),
+        subtitle: (String(e.subtitle ?? '').trim() || folder || 'Claude Code session').slice(0, 80),
+      }
       await update($, identity, () => who)
     }
     const paths: string[] = Array.isArray(e.paths) ? e.paths.map(String) : []
@@ -172,7 +196,12 @@ export const register: Register = on => {
     // The app asks the person with Touch ID (or their password); that is the only approval.
     if (!(await read($, lease))) {
       $.ui.status(`🔒 ${who.agent} asks for Full Disk Access: confirm with Touch ID`)
+      await update($, asking, () => ({ reason: String(e.reason), paths }))
+      await $.ui.open({ id: PANE, title: 'Privileged', columns: 36 })
+      spinner?.cancel(); spinner = $.clock.every(120, () => void update($, spin, n => n + 1))
       const opened = await call($, { op: 'open', ...who, reason: e.reason, paths, scope: 'session' }, APPROVAL_MS)
+      spinner?.cancel(); spinner = undefined
+      await update($, asking, () => null)
       if (opened.error) {
         $.ui.status(undefined)
         return { deny: `Full Disk Access not granted: ${opened.error}. Do not retry unless the person asks; continue without it.` }
@@ -253,8 +282,8 @@ export const register: Register = on => {
 
   on('ui.render', { component: 'Pane', requestId: PANE }, async ($, e: any) => {
     const { Box, Text } = $.ui.resolve(e)
-    const [stored, who, l, list, , frame] = await Promise.all([
-      read($, color), read($, identity), read($, lease), read($, runs), read($, tick), read($, spin)])
+    const [stored, who, l, list, , frame, ask] = await Promise.all([
+      read($, color), read($, identity), read($, lease), read($, runs), read($, tick), read($, spin), read($, asking)])
     const c = stored || COLORS[0]  // an empty color makes the engine refuse the whole pane
     const width = Math.max(20, e.props?.bodyColumns ?? 36)
     const narrow = width < 30
@@ -264,19 +293,21 @@ export const register: Register = on => {
     const shape = l ? LOCK_OPEN : LOCK_SHUT
     const lock = shape.map((row, r) => (
       <Box flexDirection="row">
-        {row.split('').map((px, k) => cell(px === 'X' ? (r < 3 ? '#B4B4C3' : c) : px === '.' ? '#281A2E' : undefined, k))}
+        {row.split('').map((px, k) => cell(px === 'X' ? (r < 3 ? P.steel : c) : px === '.' ? P.keyhole : undefined, k))}
       </Box>
     ))
-    const badge = l
-      ? <Text backgroundColor="#30A46C" color="#FFFFFF" bold>{' ● ACCESS OPEN '}</Text>
-      : <Text backgroundColor="#3A3A44" color="#C8C8D0" bold>{' ○ NO ACCESS '}</Text>
+    const badge = ask
+      ? <Text backgroundColor={P.touch[1]} color={P.openText} bold>{' ◉ TOUCH ID '}</Text>
+      : l
+      ? <Text backgroundColor={P.open} color={P.openText} bold>{' ● ACCESS OPEN '}</Text>
+      : <Text backgroundColor={P.shut} color={P.shutText} bold>{' ○ NO ACCESS '}</Text>
     const summary = l
       ? `${l.scope === 'once' ? 'one command' : 'this session'} · ${list.length} run${list.length === 1 ? '' : 's'}`
       : list.length ? `${list.length} run${list.length === 1 ? '' : 's'} earlier` : 'asks Touch ID on first use'
     const label = (text: string) => <Text color="subtle" bold>{text.split('').join(' ')}</Text>
     const SPIN = '◐◓◑◒'
     const card = (r: RunView) => {
-      const state = r.exit === null ? 'warning' : r.exit === 0 ? 'success' : 'error'
+      const state = r.exit === null ? P.busy : r.exit === 0 ? P.ok : P.bad
       const head = r.exit === null ? `${SPIN[frame % SPIN.length]} running` : r.exit === 0 ? '✓ done' : `✗ exit ${r.exit}`
       return (
         <Box flexDirection="column" borderStyle="round" borderColor={state} paddingX={1} marginTop={1}>
@@ -301,6 +332,23 @@ export const register: Register = on => {
             <Text dimColor>{summary}</Text>
           </Box>
         </Box>
+        {ask && (
+          <Box flexDirection="column" marginTop={1} alignItems="center">
+            {FINGERPRINT.map((row, i) => (
+              <Text color={Math.abs(i - (frame % (FINGERPRINT.length + 4))) < 1 ? P.touch[0] : P.touch[1]}
+                    bold={Math.abs(i - (frame % (FINGERPRINT.length + 4))) < 1}>{row}</Text>
+            ))}
+            <Text bold>Touch ID on your Mac</Text>
+            <Text dimColor>approve to give this session access</Text>
+          </Box>
+        )}
+        {ask && !narrow && (
+          <Box flexDirection="column" marginTop={1}>
+            {label('WHY')}
+            <Text>{ask.reason}</Text>
+            {ask.paths.map(p => <Text><Text color={c}>{'▸ '}</Text><Text dimColor>{fit(p, width - 6)}</Text></Text>)}
+          </Box>
+        )}
         {e.props?.placement === 'inline' && <Text dimColor>Tip: fullscreen in /config shows this beside the transcript.</Text>}
         {l && !narrow && (
           <Box flexDirection="column" marginTop={1}>

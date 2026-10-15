@@ -194,9 +194,13 @@ final class Privileged {
         guard ctx.canEvaluatePolicy(.deviceOwnerAuthentication, error: &err) else {
             return "this Mac cannot ask for Touch ID or a password: \(err?.localizedDescription ?? "unknown")"
         }
-        let scope = l.scope == "once" ? "one command" : "this session"
-        let paths = l.paths.isEmpty ? "" : " (\(l.paths.prefix(3).joined(separator: ", ")))"
-        let reason = "allow \(l.agent), \(l.subtitle), Full Disk Access for \(scope): \(l.reason)\(paths)"
+        // macOS words it "<app> is trying to <reason>.", so this is a short verb phrase; the full reason and
+        // every path are in the Claude Code pane next to it.
+        let home = NSHomeDirectory()
+        let short = l.paths.map { $0.hasPrefix(home) ? "~" + $0.dropFirst(home.count) : $0 }
+        let what = short.isEmpty ? "use Full Disk Access"
+            : "read \(short[0])" + (short.count > 1 ? " and \(short.count - 1) more" : "")
+        let reason = "let \(l.agent) \(what) for \(l.scope == "once" ? "one command" : "this session")"
         var answer: String? = "the person did not answer"
         let done = DispatchSemaphore(value: 0)
         DispatchQueue.main.async { NSApp.activate() }

@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Touch ID text is a short phrase: "let <agent> read ~/Library/Messages for this session"; the full reason and paths are in the pane.
+- Plugin 0.2.6: while Touch ID is up the pane shows a fingerprint with a scan line, a TOUCH ID badge, the reason and the paths. A new palette (softer session accents, fixed state colors). A session without a usable agent name (no PortCall, or a generic "claude-code") gets a stable two-word name; the subtitle defaults to the project folder; both fields are optional.
 - Plugin 0.2.5: a redesigned pane. The lock and the agent in the session's color, an ACCESS OPEN / NO ACCESS badge, the reason and paths under small-caps labels, recent runs as cards with a colored border by result, a spinner while a command runs, and output under a gutter.
 - Plugin 0.2.4: `/amc` shows the pane on demand with the session's access and the app's state. The "no Full Disk Access" hint now needs a failed call (an error, or a command's stderr); a successful search whose output contains the words no longer triggers it.
 - The app stays up: launchd runs its binary with KeepAlive, so it comes back seconds after macOS quits it (switching on Full Disk Access does) or it crashes; a copy macOS reopens on its own steps aside. `install.sh` now restarts the app. Plugin 0.2.3 starts the app itself when it finds it not running. Proof: `tests/test-keepalive.sh`.
