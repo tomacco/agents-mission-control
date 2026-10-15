@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Animated installer in the terminal: steps with progress, the code signature shown with its signer, and Full Disk Access explained (with a short drawing of the two moves) before any window opens. N is accepted; the panel and Claude Code ask again later.
+- `AMC_CHANNEL=test` installs a separate copy; `uninstall.sh` removes an install and its permissions; `tests/try-install.sh` tries the whole install and cleans up.
 - Full Disk Access setup with the least friction macOS allows: `install.sh`, the panel and the plugin open the settings pane and show the app in Finder ready to drag in, then wait for the switch and carry on.
 - The app checks its own Full Disk Access; the pill shows an amber dot and the panel a grant tile while it is missing; `run` refuses with a clear message.
 - The plugin warns at session start when the app is missing or has no access, takes a new key after the app restarts, and reopens the session's approval.

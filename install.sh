@@ -3,9 +3,19 @@
 # and register the Claude Code hook. Idempotent.
 set -e
 cd "${0:A:h}"; ROOT=$PWD
+# In a terminal, the animated installer (tools/installer.py) runs this script and draws its steps.
+if [[ -t 1 && -z $AMC_UI && -z $AMC_PLAIN && -z $NO_COLOR ]]; then exec /usr/bin/python3 -I tools/installer.py; fi
+step() { [[ -n $AMC_UI ]] && print "@@step $1 $2" || true }
 source ./channel.sh
+step build "Building the app"
 ./build.sh
+step sign "Checking the signature"
+sig=$(codesign -dv build/$APPFILE 2>&1)
+step signer "$(print -r -- $sig | sed -n 's/^Authority=//p' | head -1)"
+step team "$(print -r -- $sig | sed -n 's/^TeamIdentifier=//p' | head -1)"
+step app "Installing into ~/Applications"
 mkdir -p ~/Applications && rm -rf ~/Applications/$APPFILE && cp -R build/$APPFILE ~/Applications/
+step agents "Starting the background services"
 LA=~/Library/LaunchAgents
 for name in amcd app; do
   plist=$LA/$ID.$name.plist
@@ -14,6 +24,7 @@ for name in amcd app; do
   launchctl bootout gui/$(id -u) $plist 2>/dev/null || true
   launchctl bootstrap gui/$(id -u) $plist
 done
+step hook "Connecting Claude Code"
 hook=$ROOT/hooks/hands-off-guard.sh; [[ -n $CH ]] && hook="AMC_FLAG=$AMC_FLAG $hook"
 mkdir -p "$CLAUDE_DIR"; [[ -f $CLAUDE_DIR/settings.json ]] || print "{}" > "$CLAUDE_DIR/settings.json"
 python3 - "$hook" "$CLAUDE_DIR/settings.json" <<'PY'
@@ -30,9 +41,10 @@ PY
 echo "$APPNAME installed. Proof: tests/test-hands-off.sh"
 
 # Full Disk Access: macOS has no prompt for it, so open the one toggle, show the app ready to drag in, and wait.
+step start "Waiting for the app to answer"
 call=$ROOT/bin/amc-call
 for i in {1..20}; do print '{"op":"status"}' | $call | grep -q '"leases"' && break; sleep 0.5; done
-if [[ -z $AMC_NO_GRANT ]] && print '{"op":"status"}' | $call | grep -q '"fda":false'; then
+if [[ -z $AMC_NO_GRANT && -z $AMC_UI ]] && print '{"op":"status"}' | $call | grep -q '"fda":false'; then
   print '{"op":"grant"}' | $call >/dev/null
   [[ -f $AMC_FLAG ]] || afplay /System/Library/Sounds/Glass.aiff &!
   print "\nPrivileged sessions need Full Disk Access. System Settings and Finder are open:"
