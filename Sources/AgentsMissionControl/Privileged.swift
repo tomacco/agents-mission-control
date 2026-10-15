@@ -47,6 +47,19 @@ final class Privileged {
         return false
     }
 
+    // True when a live instance accepts connections on the socket (a leftover socket file refuses them).
+    static func socketAnswers() -> Bool {
+        let fd = socket(AF_UNIX, SOCK_STREAM, 0); defer { close(fd) }
+        var addr = sockaddr_un()
+        addr.sun_family = sa_family_t(AF_UNIX)
+        withUnsafeMutableBytes(of: &addr.sun_path) { buf in
+            socketPath.utf8CString.withUnsafeBytes { buf.copyMemory(from: UnsafeRawBufferPointer(rebasing: $0.prefix(buf.count - 1))) }
+        }
+        return withUnsafePointer(to: &addr) {
+            $0.withMemoryRebound(to: sockaddr.self, capacity: 1) { connect(fd, $0, socklen_t(MemoryLayout<sockaddr_un>.size)) }
+        } == 0
+    }
+
     func start() {
         try? FileManager.default.createDirectory(at: Self.runsDir, withIntermediateDirectories: true,
                                                  attributes: [.posixPermissions: 0o700])
@@ -82,6 +95,7 @@ final class Privileged {
         defer { close(c) }
         var data = Data(), byte: UInt8 = 0
         while read(c, &byte, 1) == 1 { if byte == 10 { break }; data.append(byte) }
+        if data.isEmpty { return }  // a liveness probe (socketAnswers): nothing to answer or trace
         var pid: pid_t = 0, len = socklen_t(MemoryLayout<pid_t>.size)
         getsockopt(c, SOL_LOCAL, LOCAL_PEERPID, &pid, &len)
         let reply = respond(to: (try? JSONSerialization.jsonObject(with: data)) as? [String: Any] ?? [:], peer: pid)
