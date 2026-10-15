@@ -1,5 +1,9 @@
 # Changelog
 
+## Unreleased
+
+- The installer offers to install the Claude Code plugin itself (one Y), since a manual `/plugin install` step was skipped in testing. `tests/try-install.sh` installs it into its throwaway config and puts the test prompt on the clipboard.
+
 ## 0.2.0 (2026-10-15)
 
 Split: this repository is now only privileged sessions. The menu bar pill (hands off, caffeinate, localhost) moved to [Agent Board](https://github.com/tomacco/agent-board).

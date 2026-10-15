@@ -30,18 +30,23 @@ trap cleanup EXIT INT TERM
 print "== Getting the code from $SRC"
 git clone -q --depth 1 "file://${SRC#file://}" $T/amc 2>/dev/null || git clone -q --depth 1 $SRC $T/amc || exit 1
 cd $T/amc
+MARKET=tomacco/agents-mission-control
+[[ $SRC == /* ]] && MARKET=$T/amc
+export AMC_MARKET=$MARKET
 print "== Installing (test channel)"
 ./install.sh || exit 1
 source ./channel.sh
 
-MARKET=tomacco/agents-mission-control
-[[ $SRC == /* ]] && MARKET=$T/amc
+# The installer offers the plugin in a terminal; here it is installed without asking, into the throwaway config.
+print "== Installing the Claude Code plugin into the throwaway config"
+~/.local/bin/claude plugin install amc --marketplace $MARKET </dev/null | tail -1
+PROMPT="Show me the 5 most recently modified files under ~/Library/Mail, with their dates. If you can't read that folder, say exactly why."
 cat <<MSG
 
-== Claude Code opens now with a fresh config folder (you may have to log in once). Inside it:
-   1. /plugin install amc --marketplace $MARKET      (answer y, then pick the user scope)
-   2. Ask: Show me the 5 most recently modified files under ~/Library/Mail
+== Claude Code opens now with a fresh config folder and the plugin (you may have to log in once). Inside it:
+   1. Paste the prompt on your clipboard: $PROMPT
+   2. Approve with Touch ID when asked.
    3. /exit when done. Everything installed here is then removed.
 MSG
-print -n "/plugin install amc --marketplace $MARKET" | pbcopy && print "   (step 1 is on your clipboard)\n"
+print -n "$PROMPT" | pbcopy
 AMC_SOCKET=$AMC_SOCKET ~/.local/bin/claude
