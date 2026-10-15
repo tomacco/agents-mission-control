@@ -9,9 +9,11 @@ LOG = os.path.expanduser("~/Library/Logs/amc-install.log")
 OUT = sys.stdout
 
 # The lock, in pixels (two pixel rows per text row). The shackle drops onto the body as it animates.
-SHACKLE = ["....XXXXXX....", "...XX....XX...", "..XX......XX..", "..XX......XX..", "..XX......XX..", "..XX......XX.."]
-BODY = ["XXXXXXXXXXXXXX", "XXXXXXXXXXXXXX", "XXXXXX..XXXXXX", "XXXXX....XXXXX",
-        "XXXXXX..XXXXXX", "XXXXXX..XXXXXX", "XXXXXXXXXXXXXX", "XXXXXXXXXXXXXX"]
+# One terminal column per pixel: a half-block pixel is square. In BODY, "." is the keyhole, " " is empty.
+SHACKLE = ["....XXXXXXXX....", "...XXXXXXXXXX...", "..XXX......XXX..", "..XX........XX..",
+           "..XX........XX..", "..XX........XX..", "..XX........XX.."]
+BODY = [" XXXXXXXXXXXXXX ", "XXXXXXXXXXXXXXXX", "XXXXXXX..XXXXXXX", "XXXXXX....XXXXXX", "XXXXXX....XXXXXX",
+        "XXXXXXX..XXXXXXX", "XXXXXXX..XXXXXXX", "XXXXXXXXXXXXXXXX", "XXXXXXXXXXXXXXXX", " XXXXXXXXXXXXXX "]
 LIFT = 3  # pixels the shackle starts above its closed place
 ORANGE, PINK, VIOLET = (217, 119, 87), (214, 64, 159), (142, 78, 198)
 GREEN, AMBER, RED, GREY, WHITE = (48, 164, 108), (255, 197, 61), (229, 72, 77), (128, 128, 140), (235, 235, 240)
@@ -71,6 +73,7 @@ def lock_rows(lift, shine=None, flash=0.0):
             if ch == "X": px[r][c] = steel(c)
     for r, row in enumerate(BODY):
         for c, ch in enumerate(row):
+            if ch == " ": continue
             if ch != "X":
                 px[LIFT + len(SHACKLE) + r][c] = (40, 26, 46); continue
             t = c / (width - 1); col = mix(ORANGE, PINK, t * 2) if t < .5 else mix(PINK, VIOLET, (t - .5) * 2)
@@ -84,7 +87,7 @@ def lock_rows(lift, shine=None, flash=0.0):
             elif a: cell = fg(a) + "▀"
             elif b: cell = fg(b) + "▄"
             else: cell = " "
-            line += (cell + R) * 1 + (cell + R)  # two columns per pixel keeps it square
+            line += cell + R
         rows.append(line)
     return rows
 
@@ -107,9 +110,9 @@ def header():
     w("\n")
     title = "Agents Mission Control"
     def text(i, k):
-        if i == 3: return B + gradient(title[:k]) + R
-        if i == 4 and k >= len(title): return f"{fg(GREY)}version {version()} · macOS menu bar app for local coding agents{R}"
-        if i == 5 and k >= len(title):
+        if i == 5: return B + gradient(title[:k]) + R
+        if i == 6 and k >= len(title): return f"{fg(GREY)}version {version()} · macOS menu bar app for local coding agents{R}"
+        if i == 7 and k >= len(title):
             return f"{fg(WHITE)}by {B}{AUTHOR}{R}{fg(GREY)} ({HANDLE}) · {R}{fg(ORANGE)}{link('https://' + SITE, SITE)}{R}"
         return ""
     lock_film(text, typing=len(title))
@@ -280,7 +283,7 @@ def wait_for_grant(sock):
         w("\x1b[?25h")
     w("\r\x1b[2K\n")
     done = f"{fg(GREEN)}{B}✓ Full Disk Access is on.{R}"
-    lock_film(lambda i, k: done if i == 4 else (f"{fg(GREY)}Privileged sessions are ready.{R}" if i == 5 else ""))
+    lock_film(lambda i, k: done if i == 6 else (f"{fg(GREY)}Privileged sessions are ready.{R}" if i == 7 else ""))
     chime()
 
 
