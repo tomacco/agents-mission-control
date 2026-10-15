@@ -89,6 +89,7 @@ async function setUp($: EngineInterface) {
   const st = await call($, { op: 'status' })
   if (st.error) $.ui.status('⚠ Agents Mission Control is not running: privileged sessions are off')
   else if (st.fda === false) $.ui.status('⚠ Agents Mission Control has no Full Disk Access yet (asked on first use)')
+  await $.command.register({ name: 'amc', description: 'Show the Agents Mission Control pane: access and latest privileged runs' })
   await $.tool.register({
     name: TOOL,
     isDeferred: false,
@@ -222,9 +223,23 @@ export const register: Register = on => {
 
   // Point the model at the privileged tool when Terminal's lack of Full Disk Access is the cause.
   const hint = `This failed because Terminal has no Full Disk Access. If the access is needed, retry with mcp__amc__${TOOL} and a reason.`
+  // Only a call that failed on it counts: an error whose text says so, or a command's stderr. Output that merely
+  // contains the words (a search through this plugin's own source) does not.
   on('tool.call', { tool: /^(Read|Bash)$/ }, async ($, e, next) => {
-    const ran = await next(e)
-    return ran.deny === undefined && DENIED.test(JSON.stringify(ran.result ?? '')) ? { ...ran, context: [...(ran.context ?? []), hint] } : ran
+    const ran: any = await next(e)
+    const failed = ran.deny === undefined && (
+      (ran.isError === true && DENIED.test(String(ran.text ?? JSON.stringify(ran.result ?? '')))) ||
+      DENIED.test(String(ran.result?.stderr ?? '')))
+    return failed ? { ...ran, context: [...(ran.context ?? []), hint] } : ran
+  })
+
+  // /amc shows the pane on demand: what access this session holds and its latest runs.
+  on('command.run', { command: 'amc' }, async $ => {
+    const [st, l, list] = await Promise.all([call($, { op: 'status' }), read($, lease), read($, runs)])
+    await $.ui.open({ id: PANE, title: 'Privileged', columns: 36 })
+    const app = st.error ? 'Agents Mission Control is not running' : st.fda ? 'the app has Full Disk Access' : 'the app has no Full Disk Access yet'
+    const access = l ? `this session has access (${l.reason})` : 'this session has no access'
+    return { text: `${access}; ${app}; ${list.length} privileged run${list.length === 1 ? '' : 's'}.` }
   })
 
   on('session.end', async ($, e, next) => {
