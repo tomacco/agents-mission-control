@@ -1,0 +1,6 @@
+#!/bin/sh
+# Refuse a commit that leaves the backlog invalid (tools/backlog.py).
+[ -f tools/backlog.py ] && { python3 tools/backlog.py check --quiet || exit 1; }
+# Refuse a commit whose compiled agent files drifted from .distill/ (repo-distill).
+[ -f scripts/check-freshness.sh ] && { bash scripts/check-freshness.sh . >/dev/null || { echo 'repo-distill: run bash scripts/render-adapters.sh'; exit 1; }; }
+exit 0

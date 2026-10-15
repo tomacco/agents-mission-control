@@ -1,0 +1,14 @@
+{
+  "name": "agents-mission-control",
+  "description": "Agents Mission Control: Claude Code plugins for working next to local agents on macOS",
+  "owner": {
+    "name": "Iván González"
+  },
+  "plugins": [
+    {
+      "name": "amc",
+      "source": "./mod",
+      "description": "Full Disk Access for agents through approved, traced privileged sessions"
+    }
+  ]
+}

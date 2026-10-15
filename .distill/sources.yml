@@ -1,0 +1,13 @@
+# repo-distill provenance & freshness ledger. Inline evidence lines in knowledge/*.md are primary.
+workflows.md:
+  - fact: "tests are zsh scripts run with zsh"
+    evidence: "tests/*.sh shebang"
+    confidence: validated
+    origin: evidence
+    last_validated: 2026-10-15
+architecture.md:
+  - fact: "privileged commands run as the app's children and inherit its Full Disk Access"
+    evidence: "tests/test-privileged.sh (13/13 on 2026-10-15)"
+    confidence: validated
+    origin: evidence
+    last_validated: 2026-10-15

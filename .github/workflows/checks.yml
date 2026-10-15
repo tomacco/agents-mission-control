@@ -1,0 +1,13 @@
+name: checks
+on: [push, pull_request]
+jobs:
+  knowledge:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Agent knowledge in sync with .distill/
+        run: bash scripts/check-freshness.sh .
+      - name: Backlog valid
+        run: python3 tools/backlog.py check
+      - name: Backlog tool tests
+        run: python3 -m unittest -q tests/test_backlog.py
