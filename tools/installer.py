@@ -8,8 +8,11 @@ AUTHOR, HANDLE, SITE, TEAM = "Ivan Gonzalez", "tomacco", "tomac.co", "Y4UQ4S5ANQ
 LOG = os.path.expanduser("~/Library/Logs/amc-install.log")
 OUT = sys.stdout
 
-CLAWD = ["..XXXXXXXX..", "..X.XXXX.X..", "XXX.XXXX.XXX", "XXXXXXXXXXXX",
-         "..XXXXXXXX..", "..XXXXXXXX..", "..X.X..X.X..", "..X.X..X.X.."]
+# The lock, in pixels (two pixel rows per text row). The shackle drops onto the body as it animates.
+SHACKLE = ["....XXXXXX....", "...XX....XX...", "..XX......XX..", "..XX......XX..", "..XX......XX..", "..XX......XX.."]
+BODY = ["XXXXXXXXXXXXXX", "XXXXXXXXXXXXXX", "XXXXXX..XXXXXX", "XXXXX....XXXXX",
+        "XXXXXX..XXXXXX", "XXXXXX..XXXXXX", "XXXXXXXXXXXXXX", "XXXXXXXXXXXXXX"]
+LIFT = 3  # pixels the shackle starts above its closed place
 ORANGE, PINK, VIOLET = (217, 119, 87), (214, 64, 159), (142, 78, 198)
 GREEN, AMBER, RED, GREY, WHITE = (48, 164, 108), (255, 197, 61), (229, 72, 77), (128, 128, 140), (235, 235, 240)
 SPIN = "⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏"
@@ -54,35 +57,62 @@ def chime():
 
 # ── header ────────────────────────────────────────────────────────────────────
 
-def clawd_rows(color):
+def lock_rows(lift, shine=None, flash=0.0):
+    """The lock as text rows. lift: pixels the shackle hangs above closed. shine: column of the sweeping highlight."""
+    width = len(BODY[0]); h = LIFT + len(SHACKLE) + len(BODY)
+    px = [[None] * width for _ in range(h + (h % 2))]
+    top = LIFT - lift
+    steel = lambda c: mix((150, 150, 165), (225, 225, 235), c / width)
+    for r, row in enumerate(SHACKLE):
+        for c, ch in enumerate(row):
+            if ch == "X": px[top + r][c] = steel(c)
+    for r in range(top + len(SHACKLE), LIFT + len(SHACKLE)):  # open: the left leg stays in the body, the right one is out
+        for c, ch in enumerate(SHACKLE[-1][:width // 2]):
+            if ch == "X": px[r][c] = steel(c)
+    for r, row in enumerate(BODY):
+        for c, ch in enumerate(row):
+            if ch != "X":
+                px[LIFT + len(SHACKLE) + r][c] = (40, 26, 46); continue
+            t = c / (width - 1); col = mix(ORANGE, PINK, t * 2) if t < .5 else mix(PINK, VIOLET, (t - .5) * 2)
+            if shine is not None and abs((c - r * 0.6) - shine) < 1.2: col = mix(col, (255, 255, 255), 0.75)
+            px[LIFT + len(SHACKLE) + r][c] = mix(col, (255, 255, 255), flash)
     rows = []
-    for top, bot in zip(CLAWD[0::2], CLAWD[1::2]):
+    for top_row, bot_row in zip(px[0::2], px[1::2]):
         line = ""
-        for a, b in zip(top, bot):
-            ch = {("X", "X"): "█", ("X", "."): "▀", (".", "X"): "▄"}.get((a, b), " ")
-            line += ch * 2
-        rows.append(fg(color) + line + R)
+        for a, b in zip(top_row, bot_row):
+            if a and b: cell = fg(a) + bg(b) + "▀"
+            elif a: cell = fg(a) + "▀"
+            elif b: cell = fg(b) + "▄"
+            else: cell = " "
+            line += (cell + R) * 1 + (cell + R)  # two columns per pixel keeps it square
+        rows.append(line)
     return rows
+
+
+def lock_film(text_for_row=lambda i, k: "", typing=0):
+    """Plays the lock closing: shackle drops, a click flash, a highlight sweep. Text rides on the right."""
+    frames = [(l, None, 0.0) for l in (LIFT, LIFT, LIFT, 2, 1, 0)] + [(0, None, f) for f in (0.6, 0.3, 0.1)]
+    frames += [(0, s, 0.0) for s in range(-4, len(BODY[0]) + 6)] + [(0, None, 0.0)]
+    drawn = 0; w("\x1b[?25l")
+    for n, (lift, shine, flash) in enumerate(frames):
+        k = min(typing, int(n * typing / max(1, len(frames) - 6))) if typing else 0
+        rows = lock_rows(lift, shine, flash)
+        if drawn: w(f"\x1b[{drawn}A")
+        for i, r in enumerate(rows): w("\x1b[2K  " + r + "   " + text_for_row(i, k) + "\n")
+        drawn = len(rows); time.sleep(0.07 if shine is None else 0.035)
+    w("\x1b[?25h")
 
 
 def header():
     w("\n")
-    rows = clawd_rows(ORANGE)
-    title = f"Agents Mission Control"
-    lines = [title, f"version {version()} · macOS menu bar app for local coding agents",
-             f"by {AUTHOR} ({HANDLE}) · {SITE}", ""]
-    for i, r in enumerate(rows):  # Clawd rises row by row
-        w("  " + r + "\n"); time.sleep(0.06)
-    w(f"\x1b[{len(rows)}A")
-    for i, r in enumerate(rows):
-        text = ""
-        if i == 0:
-            for k in range(1, len(title) + 1):  # title types itself in
-                w(f"\r  {r}   {B}{gradient(title[:k])}{R}"); time.sleep(0.018)
-            w("\n"); continue
-        if i == 1: text = f"{fg(GREY)}{lines[1]}{R}"
-        if i == 2: text = f"{fg(WHITE)}by {B}{AUTHOR}{R}{fg(GREY)} ({HANDLE}) · {R}{fg(ORANGE)}{link('https://' + SITE, SITE)}{R}"
-        w(f"\r  {r}   {text}\n"); time.sleep(0.05)
+    title = "Agents Mission Control"
+    def text(i, k):
+        if i == 3: return B + gradient(title[:k]) + R
+        if i == 4 and k >= len(title): return f"{fg(GREY)}version {version()} · macOS menu bar app for local coding agents{R}"
+        if i == 5 and k >= len(title):
+            return f"{fg(WHITE)}by {B}{AUTHOR}{R}{fg(GREY)} ({HANDLE}) · {R}{fg(ORANGE)}{link('https://' + SITE, SITE)}{R}"
+        return ""
+    lock_film(text, typing=len(title))
     w("\n")
 
 
@@ -248,9 +278,9 @@ def wait_for_grant(sock):
             tick += 1; time.sleep(0.1)
     finally:
         w("\x1b[?25h")
-    for k in range(6):  # a small burst
-        w(f"\r\x1b[2K  {fg(mix(ORANGE, GREEN, k / 5))}{'✦ ' * (k + 1)}{R}"); time.sleep(0.06)
-    w(f"\r\x1b[2K  {fg(GREEN)}{B}✓ Full Disk Access is on.{R} Privileged sessions are ready.\n")
+    w("\r\x1b[2K\n")
+    done = f"{fg(GREEN)}{B}✓ Full Disk Access is on.{R}"
+    lock_film(lambda i, k: done if i == 4 else (f"{fg(GREY)}Privileged sessions are ready.{R}" if i == 5 else ""))
     chime()
 
 
