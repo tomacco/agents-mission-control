@@ -7,13 +7,10 @@ staleness_threshold: 180
 
 # Glossary
 
-- **Hands off**: switch that forbids agents to speak, play sounds or drive mouse and keyboard; the file `~/.amc/hands-off`. evidence: README.md
-- **Clawd**: the pixel mascot in the pill and in the plugin pane. evidence: Bar.swift#Art
-- **Pill**: the single menu bar status item (Clawd, cup, rack). evidence: README.md
-- **amcd**: the enforcer LaunchAgent that kills blocked processes while hands off is on. evidence: bin/amcd
 - **Privileged session**: a Claude Code session whose approved commands run inside the app with its Full Disk Access. evidence: README.md
 - **Lease**: an approval for a session, scope `once` or `session`. evidence: Privileged.swift#Lease
 - **Approval**: Touch ID or the login password, asked by the app before a lease opens. evidence: Privileged.swift#personApproves
 - **Trace**: `~/.amc/trace.jsonl`, the hash-chained log of every request. evidence: Privileged.swift#trace
+- **Channel**: a named install (`AMC_CHANNEL`); `test` is a separate copy with its own identity and grant. evidence: channel.sh
 - **Mod**: Claude Code's name for a plugin built from a hooks module; here `mod/`, plugin name `amc`. evidence: mod/.claude-plugin/plugin.json
   confidence: validated

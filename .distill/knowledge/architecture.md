@@ -8,30 +8,26 @@ staleness_threshold: 90
 # Architecture
 
 ## Components
-- **Menu bar app** (SwiftPM executable `AgentsMissionControl`, bundle `co.tomac.amc`, LSUIElement). evidence: Package.swift, build.sh
-  - `MissionControlApp.swift`: entry, the `MissionControl` observable model (polls flag, caffeinate, servers). evidence: Sources/AgentsMissionControl/MissionControlApp.swift
-  - `Bar.swift`: the one NSStatusItem pill and pixel art; `Panel.swift`: the glass panel tiles. evidence: Sources/
-  - `Privileged.swift`: Unix socket server for privileged sessions. evidence: Sources/AgentsMissionControl/Privileged.swift
-- **Scripts** in `bin/`: `amcctl` (flip hands off), `amcd` (enforcer loop), `servers` (localhost listeners as TSV), `amc-call` (socket client). evidence: bin/
-- **Claude Code hook** `hooks/hands-off-guard.sh` (PreToolUse on Bash). evidence: install.sh
-- **Claude Code plugin** `mod/` (name `amc`): hooks module `mod/hooks/register.tsx`, state contract `mod/types/index.d.ts`; marketplace file at `.claude-plugin/marketplace.json`. evidence: mod/, .claude-plugin/
-- **LaunchAgents** `launchd/*.plist`, templated with `@ROOT@`/`@HOME@` by install.sh. evidence: install.sh
-- `swiftbar/`: the retired SwiftBar plugins; the caffeinate tile still calls `swiftbar/caffeinate/caffeinate.5s.sh`. evidence: MissionControlApp.swift#caffeinate
-  confidence: validated
-
-## Data flow: hands off
-- The panel and `amcctl` only write or remove `~/.amc/hands-off`; `amcd` and the hook enforce. [IMPORTANT] Keep enforcement out of the UI.
-  evidence: README.md, AGENTS.md
+- **App** (SwiftPM executable `AgentsMissionControl`, bundle `co.tomac.amc`, accessory app: no menu bar item, no window). `main.swift` starts `Privileged` and handles the grant step. evidence: Package.swift, Sources/AgentsMissionControl/main.swift
   confidence: validated
   origin: directive
+- **Privileged.swift**: Unix socket server, peer check, Touch ID approval, leases, runs, trace. evidence: Sources/AgentsMissionControl/Privileged.swift
+- **Claude Code plugin** `mod/` (name `amc`): tool `privileged_bash`, side pane, status lines, embedded socket client; marketplace file `.claude-plugin/marketplace.json`. evidence: mod/
+- **Installer**: `install.sh` hands a terminal to `tools/installer.py` (animated steps, signature card, guided Full Disk Access); `uninstall.sh`; `channel.sh` names an install (`AMC_CHANNEL=test` is a separate copy). evidence: install.sh, tools/installer.py, channel.sh
+- **LaunchAgent** `launchd/co.tomac.amc.app.plist` (templated) opens the app at login. evidence: install.sh
+  confidence: validated
 
-## Data flow: privileged sessions
-- Plugin (embedded socket client) or `bin/amc-call` → `~/.amc/amc.sock` → app. Ops: open, run, end, status, grant (one JSON line each way).
-- Trust: caller must descend from Anthropic-signed Claude Code (dynamic code-signature check on the live pid); a lease belongs to that claude pid and opens only after Touch ID or the login password (LocalAuthentication); leases `once` or `session`.
-- Commands run as the app's children (`/bin/zsh -o pipefail -c`), so they inherit the app's Full Disk Access; output to `~/.amc/runs/<id>.log`; every request hash-chained into `~/.amc/trace.jsonl`.
+## Data flow
+- Plugin or `bin/amc-call` → `~/.amc/amc.sock` → app. Ops: open, run, end, status, grant (one JSON line each way).
+- Trust: caller must descend from Anthropic-signed Claude Code (dynamic code-signature check on the live pid); a lease belongs to that claude pid and opens only after Touch ID or the login password; scopes `once` and `session`.
+- Commands run as the app's children (`/bin/zsh -o pipefail -c`), inheriting its Full Disk Access; output to `~/.amc/runs/<id>.log`; every request hash-chained into `~/.amc/trace.jsonl`.
   evidence: Privileged.swift, mod/hooks/register.tsx, tests/test-privileged.sh
   confidence: validated
 
 ## State on disk
-- `~/.amc/` (0700): `hands-off`, `amc.sock`, `trace.jsonl`, `runs/`. The key `AMCRoot` in Info.plist points the app at the checkout (scripts run live from the repo). evidence: build.sh, MissionControlApp.swift
+- `~/.amc/` (0700): `amc.sock`, `trace.jsonl`, `runs/`; the folder comes from Info.plist `AMCHome` (per channel). evidence: build.sh, channel.sh
+  confidence: validated
+
+## Related
+- Agent Board (tomacco/agent-board) owns hands off; this repo only reads its flag `~/.agent-board/hands-off` before playing a sound. evidence: tools/installer.py#hands_off
   confidence: validated

@@ -1,7 +1,7 @@
 ---
 id: task-3
 title: Drop synthetic input while hands off is on
-status: To Do
+status: Cancelled
 assignee: []
 created_date: 2026-10-15
 updated_date: 2026-10-15
@@ -19,6 +19,10 @@ A CGEventTap in the app (needs Accessibility). See docs/ROADMAP.md Phase 1.5.
 
 ## Handoff
 
+- 2026-10-15 10:43Z · ivan.leonardo.gonzalez@agents-mission-control · main: Moved to Agent Board with the hands-off feature Next: Track it in tomacco/agent-board
+
 ## Evidence
 
 ## Final Summary
+
+Cancelled: Hands off moved to tomacco/agent-board

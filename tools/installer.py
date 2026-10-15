@@ -17,8 +17,7 @@ ORANGE, PINK, VIOLET = (217, 119, 87), (214, 64, 159), (142, 78, 198)
 GREEN, AMBER, RED, GREY, WHITE = (48, 164, 108), (255, 197, 61), (229, 72, 77), (128, 128, 140), (235, 235, 240)
 SPIN = "⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏"
 STEPS = [("build", "Building the app"), ("sign", "Checking the signature"), ("app", "Installing into ~/Applications"),
-         ("agents", "Starting the background services"), ("hook", "Connecting Claude Code"),
-         ("start", "Waiting for the app to answer")]
+         ("agents", "Starting the app at login"), ("start", "Waiting for the app to answer")]
 
 def fg(c): return f"\x1b[38;2;{c[0]};{c[1]};{c[2]}m"
 def bg(c): return f"\x1b[48;2;{c[0]};{c[1]};{c[2]}m"
@@ -45,8 +44,7 @@ def version():
 
 
 def hands_off():
-    home = os.environ.get("AMC_FLAG") or os.path.expanduser("~/.amc/hands-off")
-    return os.path.exists(home)
+    return os.path.exists(os.path.expanduser("~/.agent-board/hands-off"))  # Agent Board's switch, if installed
 
 
 def chime():
@@ -97,7 +95,7 @@ def header():
     title = "Agents Mission Control"
     def text(i, k):
         if i == 7: return B + gradient(title[:k]) + R
-        if i == 8 and k >= len(title): return f"{fg(GREY)}version {version()} · macOS menu bar app for local coding agents{R}"
+        if i == 8 and k >= len(title): return f"{fg(GREY)}version {version()} · Full Disk Access for coding agents, approved with Touch ID{R}"
         if i == 9 and k >= len(title):
             return f"{fg(WHITE)}by {B}{AUTHOR}{R}{fg(GREY)} ({HANDLE}) · {R}{fg(ORANGE)}{link('https://' + SITE, SITE)}{R}"
         return ""
@@ -280,9 +278,9 @@ def full_disk_access(appname, sock):
     explain_fda(appname)
     if ask_yes("Open System Settings and Finder now?"):
         ask_app({"op": "grant"}, sock); chime(); wait_for_grant(sock); return True
-    w(f"\n  {fg(AMBER)}Not now: fine.{R} Hands off, caffeinate and the localhost list work without it.\n")
-    w(f"  Privileged sessions need it, so you will be asked again: by the {B}menu bar panel{R} (Grant Full Disk Access)\n")
-    w(f"  and by Claude Code the first time an agent needs it. Both open the same two windows for you.\n")
+    w(f"\n  {fg(AMBER)}Not now: fine.{R} Nothing else changes on this Mac.\n")
+    w(f"  Agents cannot use privileged sessions without it, so Claude Code asks again the first time an agent needs it,\n")
+    w(f"  and opens the same two windows for you. Running ./install.sh again does too.\n")
     return False
 
 
@@ -291,7 +289,7 @@ def full_disk_access(appname, sock):
 def finale(appname):
     line = "/plugin install amc --marketplace tomacco/agents-mission-control"
     subprocess.run(["/usr/bin/pbcopy"], input=line, text=True)
-    w(f"\n  {B}{gradient('Installed.')}{R} Look for Clawd in your menu bar.\n\n")
+    w(f"\n  {B}{gradient('Installed.')}{R} It runs in the background, with nothing in the menu bar.\n\n")
     w(f"  {B}Next{R}, in Claude Code {fg(GREY)}(on your clipboard){R}:\n")
     w(f"    {fg(ORANGE)}{line}{R}\n\n")
     w(f"  {fg(GREY)}Remove it any time: ./uninstall.sh   ·   Log: {LOG}{R}\n")
