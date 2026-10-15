@@ -15,6 +15,7 @@ const identity = atom({ ...S, key: 'identity' } as const, null as Identity | nul
 const lease = atom({ ...S, key: 'lease' } as const, null as LeaseView | null)
 const runs = atom({ ...S, key: 'runs' } as const, [] as RunView[])
 const tick = atom({ ...S, key: 'tick' } as const, 0)  // bumped every 30 s so relative times redraw
+const spin = atom({ ...S, key: 'spin' } as const, 0)  // bumped while a command runs, for the spinner
 
 const TOOL = 'privileged_bash'
 const PANE = 'amc'
@@ -128,6 +129,7 @@ async function waitForAccess($: EngineInterface): Promise<boolean> {
 export const register: Register = on => {
   let isSetUp = false
   let collapse: { cancel: () => void } | undefined
+  let spinner: { cancel: () => void } | undefined
   on('session.start', async ($, e, next) => {
     const started = await next(e)
     await setUp($); isSetUp = true
@@ -182,6 +184,7 @@ export const register: Register = on => {
     const id = `r${Date.now().toString(36)}${Math.random().toString(36).slice(2, 6)}`
     const run: RunView = { id, command: String(e.command), reason: String(e.reason), exit: null, tail: [], at: Date.now() }
     collapse?.cancel()
+    spinner?.cancel(); spinner = $.clock.every(120, () => void update($, spin, n => n + 1))
     await update($, runs, list => [...list, run].slice(-20))
     $.ui.status(`🔒 ${who.agent}: privileged run${opened.isPlaced ? '' : ` (${e.command.slice(0, 50)})`}`)
 
@@ -208,6 +211,7 @@ export const register: Register = on => {
     }
     await live.return?.(undefined as never)
     await update($, runs, list => list.map(x => (x.id === id ? { ...x, exit: r.exit ?? -1 } : x)))
+    spinner?.cancel(); spinner = undefined
     collapse = $.clock.after(COLLAPSE_MS, () => void $.ui.close({ id: PANE }))
     if ((await read($, lease))?.scope === 'once') await update($, lease, () => null)
     $.ui.status(`🔒 ${who.agent}: privileged session`)
@@ -249,46 +253,70 @@ export const register: Register = on => {
 
   on('ui.render', { component: 'Pane', requestId: PANE }, async ($, e: any) => {
     const { Box, Text } = $.ui.resolve(e)
-    const [stored, who, l, list] = await Promise.all([read($, color), read($, identity), read($, lease), read($, runs), read($, tick)])
+    const [stored, who, l, list, , frame] = await Promise.all([
+      read($, color), read($, identity), read($, lease), read($, runs), read($, tick), read($, spin)])
     const c = stored || COLORS[0]  // an empty color makes the engine refuse the whole pane
-    const narrow = (e.props?.bodyColumns ?? 36) < 30
+    const width = Math.max(20, e.props?.bodyColumns ?? 36)
+    const narrow = width < 30
     const now = Date.now()
-    const lock = (l ? LOCK_OPEN : LOCK_SHUT).map(row => (
+    const fit = (text: string, room: number) => (text.length > room ? text.slice(0, Math.max(1, room - 1)) + '…' : text)
+    const cell = (bgc: string | undefined, k: number) => bgc ? <Text key={k} backgroundColor={bgc}>{'  '}</Text> : <Text key={k}>{'  '}</Text>
+    const shape = l ? LOCK_OPEN : LOCK_SHUT
+    const lock = shape.map((row, r) => (
       <Box flexDirection="row">
-        {row.split('').map(px => px === 'X' ? <Text backgroundColor={c}>{'  '}</Text>
-          : px === '.' ? <Text backgroundColor="#281A2E">{'  '}</Text> : <Text>{'  '}</Text>)}
+        {row.split('').map((px, k) => cell(px === 'X' ? (r < 3 ? '#B4B4C3' : c) : px === '.' ? '#281A2E' : undefined, k))}
       </Box>
     ))
-    // The shackle is steel: repaint its rows (all above the body) grey.
-    const shackleRows = 3
-    const steel = (l ? LOCK_OPEN : LOCK_SHUT).slice(0, shackleRows).map(row => (
-      <Box flexDirection="row">
-        {row.split('').map(px => px === 'X' ? <Text backgroundColor="#B4B4C3">{'  '}</Text> : <Text>{'  '}</Text>)}
-      </Box>
-    ))
+    const badge = l
+      ? <Text backgroundColor="#30A46C" color="#FFFFFF" bold>{' ● ACCESS OPEN '}</Text>
+      : <Text backgroundColor="#3A3A44" color="#C8C8D0" bold>{' ○ NO ACCESS '}</Text>
+    const summary = l
+      ? `${l.scope === 'once' ? 'one command' : 'this session'} · ${list.length} run${list.length === 1 ? '' : 's'}`
+      : list.length ? `${list.length} run${list.length === 1 ? '' : 's'} earlier` : 'asks Touch ID on first use'
+    const label = (text: string) => <Text color="subtle" bold>{text.split('').join(' ')}</Text>
+    const SPIN = '◐◓◑◒'
+    const card = (r: RunView) => {
+      const state = r.exit === null ? 'warning' : r.exit === 0 ? 'success' : 'error'
+      const head = r.exit === null ? `${SPIN[frame % SPIN.length]} running` : r.exit === 0 ? '✓ done' : `✗ exit ${r.exit}`
+      return (
+        <Box flexDirection="column" borderStyle="round" borderColor={state} paddingX={1} marginTop={1}>
+          <Box flexDirection="row" justifyContent="space-between">
+            <Text color={state} bold>{head}</Text>
+            <Text dimColor>{r.exit === null ? '' : ago(now - (r.at ?? now))}</Text>
+          </Box>
+          <Text><Text color={c} bold>{'❯ '}</Text>{fit(r.command, width - 8)}</Text>
+          {!narrow && r.tail.slice(-3).map(t => <Text dimColor>{'│ ' + fit(t, width - 8)}</Text>)}
+        </Box>
+      )
+    }
     return (
-      <Box flexDirection="column">
+      <Box flexDirection="column" paddingX={1}>
         <Box flexDirection="row">
-          <Box flexDirection="column">{[...steel, ...lock.slice(shackleRows)]}</Box>
+          <Box flexDirection="column">{lock}</Box>
           <Box flexDirection="column" marginLeft={2}>
+            <Text color={c} bold>{fit(who?.agent ?? 'No agent yet', width - 20)}</Text>
+            <Text dimColor>{fit(who?.subtitle ?? 'waiting for a privileged request', width - 20)}</Text>
             <Text> </Text>
-            <Text bold>{who?.agent ?? 'agent'}</Text>
-            <Text dimColor>{who?.subtitle ?? ''}</Text>
-            <Text color={l ? 'warning' : undefined}>{l ? `Full Disk Access · ${l.scope === 'once' ? 'once' : 'this session'}` : 'no access'}</Text>
+            {badge}
+            <Text dimColor>{summary}</Text>
           </Box>
         </Box>
         {e.props?.placement === 'inline' && <Text dimColor>Tip: fullscreen in /config shows this beside the transcript.</Text>}
-        {l && !narrow && <Text>Why: {l.reason}</Text>}
-        {l && !narrow && l.paths.map(p => <Text dimColor>{p}</Text>)}
-        {newestFirst(list, narrow ? 2 : 5).map(r => (
+        {l && !narrow && (
           <Box flexDirection="column" marginTop={1}>
-            <Text color={r.exit === null ? 'warning' : r.exit === 0 ? 'success' : 'error'}>
-              {r.exit === null ? '…' : r.exit === 0 ? '✓' : `✗ ${r.exit}`} {r.command}
-            </Text>
-            <Text dimColor>{r.exit === null ? 'running' : ago(now - (r.at ?? now))}</Text>
-            {!narrow && r.tail.slice(-4).map(t => <Text dimColor>{t}</Text>)}
+            <Text dimColor>{'─'.repeat(width - 2)}</Text>
+            {label('WHY')}
+            <Text>{l.reason}</Text>
+            {l.paths.map(p => <Text><Text color={c}>{'▸ '}</Text><Text dimColor>{fit(p, width - 6)}</Text></Text>)}
           </Box>
-        ))}
+        )}
+        {list.length > 0 && (
+          <Box flexDirection="column" marginTop={1}>
+            {label('RECENT')}
+            {newestFirst(list, narrow ? 1 : 4).map(card)}
+          </Box>
+        )}
+        {!narrow && <Box marginTop={1}><Text dimColor>Touch ID · every command traced · /amc</Text></Box>}
       </Box>
     )
   })

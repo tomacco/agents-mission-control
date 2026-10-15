@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- Plugin 0.2.5: a redesigned pane. The lock and the agent in the session's color, an ACCESS OPEN / NO ACCESS badge, the reason and paths under small-caps labels, recent runs as cards with a colored border by result, a spinner while a command runs, and output under a gutter.
 - Plugin 0.2.4: `/amc` shows the pane on demand with the session's access and the app's state. The "no Full Disk Access" hint now needs a failed call (an error, or a command's stderr); a successful search whose output contains the words no longer triggers it.
 - The app stays up: launchd runs its binary with KeepAlive, so it comes back seconds after macOS quits it (switching on Full Disk Access does) or it crashes; a copy macOS reopens on its own steps aside. `install.sh` now restarts the app. Plugin 0.2.3 starts the app itself when it finds it not running. Proof: `tests/test-keepalive.sh`.
 - Installer: a big pulsing YOUR TURN banner (with a chime) before the Full Disk Access step, and a big ALL SET! that wipes in under falling confetti once access is on.

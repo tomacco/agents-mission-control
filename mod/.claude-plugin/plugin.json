@@ -1,1 +1,1 @@
-{ "name": "amc", "author": { "name": "Iván González" }, "version": "0.2.4", "description": "Agents Mission Control: Full Disk Access for agents through privileged sessions, approved per session and traced", "types": "./types/index.d.ts" }
+{ "name": "amc", "author": { "name": "Iván González" }, "version": "0.2.5", "description": "Agents Mission Control: Full Disk Access for agents through privileged sessions, approved per session and traced", "types": "./types/index.d.ts" }

@@ -10,6 +10,7 @@ declare module 'claude-code' {
       lease: LeaseView | null
       runs: RunView[]
       tick: number
+      spin: number
     }
   }
 }
