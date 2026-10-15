@@ -1,6 +1,7 @@
 import { expect, test } from 'claude-code/testing'
 
 import { GENERIC, ago, newestFirst, sessionName } from '../hooks/format'
+import { lockRows, tone } from '../hooks/lock'
 import { orbRows } from '../hooks/orb'
 import type { RunView } from '../types'
 
@@ -71,4 +72,17 @@ test('a thinking orb frame is drawn as Braille rows', () => {
   expect(inked.length).toBeGreaterThan(20)
   expect(inked.every(c => c.ch.charCodeAt(0) >= 0x2800 && c.ch.charCodeAt(0) <= 0x28ff)).toBe(true)
   expect(orbRows('breathing', 1.3).map(r => r.map(c => c.ch).join(''))).not.toEqual(orbRows('breathing', 2.1).map(r => r.map(c => c.ch).join('')))
+})
+
+test('the lock is drawn in Braille and its shackle rises when open', () => {
+  const shut = lockRows(0), open = lockRows(4)
+  expect(shut.length).toBe(7)
+  expect(shut.every(r => r.length === 10)).toBe(true)
+  expect(shut.flat().some(c => c.part === 'steel')).toBe(true)
+  expect(shut.flat().some(c => c.part === 'body' && c.shade === 3)).toBe(true)
+  // raised, the shackle's arc fills more of the top row
+  const topSteel = (rows: typeof shut) => rows[0]!.filter(c => c.part === 'steel').length
+  expect(topSteel(open)).toBeGreaterThan(topSteel(shut))
+  expect(tone('#808080', 1)).toBe('#ffffff')
+  expect(tone('#808080', -1)).toBe('#000000')
 })

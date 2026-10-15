@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- Plugin 0.2.9: the header lock is drawn in Braille from shapes (round shackle, shaded rounded body, keyhole) in the session color, and its shackle slides up when access opens.
 - Plugin 0.2.8: while Touch ID is up the pane shows a breathing thinking orb, drawn in Braille from the thinking-orbs engine by Jakub Antalik (MIT, vendored in `mod/vendor/thinking-orbs`).
 - Touch ID text is a short phrase: "let <agent> read ~/Library/Messages for this session"; the full reason and paths are in the pane.
 - Plugin 0.2.6: while Touch ID is up the pane shows a fingerprint with a scan line, a TOUCH ID badge, the reason and the paths. A new palette (softer session accents, fixed state colors). A session without a usable agent name (no PortCall, or a generic "claude-code") gets a stable two-word name; the subtitle defaults to the project folder; both fields are optional.
