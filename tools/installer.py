@@ -8,20 +8,17 @@ AUTHOR, HANDLE, SITE, TEAM = "Ivan Gonzalez", "tomacco", "tomac.co", "Y4UQ4S5ANQ
 LOG = os.path.expanduser("~/Library/Logs/amc-install.log")
 OUT = sys.stdout
 
-# The lock, in pixels (two pixel rows per text row). The shackle drops onto the body as it animates.
-# One terminal column per pixel: a half-block pixel is square. In BODY, "." is the keyhole, " " is empty.
-SHACKLE = ["....XXXXXXXX....", "...XXXXXXXXXX...", "..XXX......XXX..", "..XX........XX..",
-           "..XX........XX..", "..XX........XX..", "..XX........XX.."]
-BODY = [" XXXXXXXXXXXXXX ", "XXXXXXXXXXXXXXXX", "XXXXXXX..XXXXXXX", "XXXXXX....XXXXXX", "XXXXXX....XXXXXX",
-        "XXXXXXX..XXXXXXX", "XXXXXXX..XXXXXXX", "XXXXXXXXXXXXXXXX", "XXXXXXXXXXXXXXXX", " XXXXXXXXXXXXXX "]
-LIFT = 3  # pixels the shackle starts above its closed place
+# The lock, in pixels. A pixel is two terminal columns of background color: background fills the whole
+# cell, so no line spacing or font leaves seams (half-block glyphs did). In BODY, "." is the keyhole.
+SHACKLE = ["..XXXXX..", ".XX...XX.", ".X.....X.", ".X.....X."]
+BODY = ["XXXXXXXXX", "XXX...XXX", "XXXX.XXXX", "XXXX.XXXX", "XXXXXXXXX", "XXXXXXXXX"]
+LIFT = 2  # rows the shackle starts above its closed place
 ORANGE, PINK, VIOLET = (217, 119, 87), (214, 64, 159), (142, 78, 198)
 GREEN, AMBER, RED, GREY, WHITE = (48, 164, 108), (255, 197, 61), (229, 72, 77), (128, 128, 140), (235, 235, 240)
 SPIN = "⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏"
 STEPS = [("build", "Building the app"), ("sign", "Checking the signature"), ("app", "Installing into ~/Applications"),
          ("agents", "Starting the background services"), ("hook", "Connecting Claude Code"),
          ("start", "Waiting for the app to answer")]
-
 
 def fg(c): return f"\x1b[38;2;{c[0]};{c[1]};{c[2]}m"
 def bg(c): return f"\x1b[48;2;{c[0]};{c[1]};{c[2]}m"
@@ -60,9 +57,9 @@ def chime():
 # ── header ────────────────────────────────────────────────────────────────────
 
 def lock_rows(lift, shine=None, flash=0.0):
-    """The lock as text rows. lift: pixels the shackle hangs above closed. shine: column of the sweeping highlight."""
+    """The lock as text rows. lift: rows the shackle hangs above closed. shine: column of the sweeping highlight."""
     width = len(BODY[0]); h = LIFT + len(SHACKLE) + len(BODY)
-    px = [[None] * width for _ in range(h + (h % 2))]
+    px = [[None] * width for _ in range(h)]
     top = LIFT - lift
     steel = lambda c: mix((150, 150, 165), (225, 225, 235), c / width)
     for r, row in enumerate(SHACKLE):
@@ -73,28 +70,17 @@ def lock_rows(lift, shine=None, flash=0.0):
             if ch == "X": px[r][c] = steel(c)
     for r, row in enumerate(BODY):
         for c, ch in enumerate(row):
-            if ch == " ": continue
             if ch != "X":
                 px[LIFT + len(SHACKLE) + r][c] = (40, 26, 46); continue
             t = c / (width - 1); col = mix(ORANGE, PINK, t * 2) if t < .5 else mix(PINK, VIOLET, (t - .5) * 2)
-            if shine is not None and abs((c - r * 0.6) - shine) < 1.2: col = mix(col, (255, 255, 255), 0.75)
+            if shine is not None and abs((c - r * 0.8) - shine) < 0.9: col = mix(col, (255, 255, 255), 0.7)
             px[LIFT + len(SHACKLE) + r][c] = mix(col, (255, 255, 255), flash)
-    rows = []
-    for top_row, bot_row in zip(px[0::2], px[1::2]):
-        line = ""
-        for a, b in zip(top_row, bot_row):
-            if a and b: cell = fg(a) + bg(b) + "▀"
-            elif a: cell = fg(a) + "▀"
-            elif b: cell = fg(b) + "▄"
-            else: cell = " "
-            line += cell + R
-        rows.append(line)
-    return rows
+    return ["".join((bg(p) + "  " + R) if p else "  " for p in row) for row in px]
 
 
 def lock_film(text_for_row=lambda i, k: "", typing=0):
     """Plays the lock closing: shackle drops, a click flash, a highlight sweep. Text rides on the right."""
-    frames = [(l, None, 0.0) for l in (LIFT, LIFT, LIFT, 2, 1, 0)] + [(0, None, f) for f in (0.6, 0.3, 0.1)]
+    frames = [(l, None, 0.0) for l in (LIFT, LIFT, LIFT, LIFT, 1, 0)] + [(0, None, f) for f in (0.6, 0.3, 0.1)]
     frames += [(0, s, 0.0) for s in range(-4, len(BODY[0]) + 6)] + [(0, None, 0.0)]
     drawn = 0; w("\x1b[?25l")
     for n, (lift, shine, flash) in enumerate(frames):
@@ -110,9 +96,9 @@ def header():
     w("\n")
     title = "Agents Mission Control"
     def text(i, k):
-        if i == 5: return B + gradient(title[:k]) + R
-        if i == 6 and k >= len(title): return f"{fg(GREY)}version {version()} · macOS menu bar app for local coding agents{R}"
-        if i == 7 and k >= len(title):
+        if i == 7: return B + gradient(title[:k]) + R
+        if i == 8 and k >= len(title): return f"{fg(GREY)}version {version()} · macOS menu bar app for local coding agents{R}"
+        if i == 9 and k >= len(title):
             return f"{fg(WHITE)}by {B}{AUTHOR}{R}{fg(GREY)} ({HANDLE}) · {R}{fg(ORANGE)}{link('https://' + SITE, SITE)}{R}"
         return ""
     lock_film(text, typing=len(title))
@@ -283,7 +269,7 @@ def wait_for_grant(sock):
         w("\x1b[?25h")
     w("\r\x1b[2K\n")
     done = f"{fg(GREEN)}{B}✓ Full Disk Access is on.{R}"
-    lock_film(lambda i, k: done if i == 6 else (f"{fg(GREY)}Privileged sessions are ready.{R}" if i == 7 else ""))
+    lock_film(lambda i, k: done if i == 8 else (f"{fg(GREY)}Privileged sessions are ready.{R}" if i == 9 else ""))
     chime()
 
 
