@@ -1,12 +1,13 @@
 ---
 id: task-4
 title: Refuse a late key registration after hot reload
-status: To Do
+status: Done
 assignee: []
 created_date: 2026-10-15
 updated_date: 2026-10-15
 labels: [privileged]
 dependencies: []
+completed_date: 2026-10-15
 ---
 
 ## Description
@@ -23,4 +24,8 @@ If the plugin loads after the model ran commands, the agent may have taken the s
 
 ## Evidence
 
+- `Sources/AgentsMissionControl/Privileged.swift`
+
 ## Final Summary
+
+Superseded by decision-3: session keys removed, the app asks for Touch ID before any lease opens. The late-install race no longer matters.
