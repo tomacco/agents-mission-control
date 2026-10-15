@@ -76,12 +76,11 @@ struct CaffeineTile: View {
             VStack(alignment: .leading, spacing: 10) {
                 Button { c == nil ? start(nil) : helm.caffeinate(nil) } label: {
                     HStack(spacing: 12) {
-                        Image(systemName: "cup.and.saucer.fill")
-                            .font(.system(size: 17, weight: .semibold))
-                            .foregroundStyle(c == nil ? AnyShapeStyle(.primary) : AnyShapeStyle(.white))
+                        Mug(size: 26, color: c == nil ? .primary : .white, steaming: c != nil).offset(y: -1)
                             .frame(width: 40, height: 40)
-                            .background(Circle().fill(c == nil ? .clear : (c!.screen ? Art.amber : Art.orange)))
+                            .background(Circle().fill(c == nil ? .clear : (c!.screen ? Art.amber : Art.roast)))
                             .glassEffect(.regular, in: .circle)
+                            .overlay(alignment: .top) { if c != nil { Vapor(tint: c!.screen ? Art.amber : Art.roast) } }
                         VStack(alignment: .leading, spacing: 2) {
                             Text("Caffeinate").font(.headline)
                             Text(subtitle).font(.subheadline.weight(c == nil ? .regular : .semibold))
@@ -123,7 +122,7 @@ struct CaffeineTile: View {
 
     func start(_ secs: Int?) { helm.caffeinate(helm.caffeine?.screen == true ? "-di" : "-i", seconds: secs) }
 
-    func chip<L: View>(_ label: L, on: Bool, tint: Color = Art.orange, action: @escaping () -> Void) -> some View {
+    func chip<L: View>(_ label: L, on: Bool, tint: Color = Art.roast, action: @escaping () -> Void) -> some View {
         Button(action: action) {
             label
                 .font(.caption.weight(on ? .bold : .medium))
@@ -133,6 +132,35 @@ struct CaffeineTile: View {
                 .glassEffect(.regular.interactive(), in: .capsule)
         }
         .buttonStyle(.plain)
+    }
+}
+
+// Soft vapor puffs that rise off the glass circle while caffeinate runs.
+struct Vapor: View {
+    let tint: Color
+    var body: some View {
+        ZStack {
+            ForEach(0..<5) { i in Puff(tint: tint, x: [-13, 9, -3, 14, -10][i], delay: Double(i) * 0.5) }
+        }
+        .frame(width: 40, height: 40)
+        .allowsHitTesting(false)
+    }
+}
+
+struct Puff: View {
+    let tint: Color
+    let x: CGFloat
+    let delay: Double
+    @State private var up = false
+    var body: some View {
+        Circle()
+            .fill(RadialGradient(colors: [.white, .white.opacity(0.6), tint.opacity(0)], center: .center, startRadius: 0, endRadius: 9))
+            .frame(width: 18, height: 18)
+            .blur(radius: 1.5)
+            .scaleEffect(up ? 1.7 : 0.6)
+            .offset(x: up ? x * 1.4 : x * 0.7, y: up ? -22 : 4)
+            .opacity(up ? 0 : 0.95)
+            .onAppear { withAnimation(.easeOut(duration: 2.4).repeatForever(autoreverses: false).delay(delay)) { up = true } }
     }
 }
 
