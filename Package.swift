@@ -2,7 +2,7 @@
 import PackageDescription
 
 let package = Package(
-    name: "Helm",
+    name: "AgentsMissionControl",
     platforms: [.macOS("26.0")],
-    targets: [.executableTarget(name: "Helm", path: "Sources/Helm")]
+    targets: [.executableTarget(name: "AgentsMissionControl", path: "Sources/AgentsMissionControl")]
 )

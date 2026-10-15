@@ -9,9 +9,9 @@ Add the same switches to Control Center through "Edit Controls", with a WidgetKi
 
 What it needs:
 - An Xcode project (a widget extension cannot be built from a plain Swift package).
-- The flag in a location the sandboxed extension can write: an App Group container, with `helmd`, the hook and `helmctl` reading it there.
+- The flag in a location the sandboxed extension can write: an App Group container, with `amcd`, the hook and `amcctl` reading it there.
 - Signing with an Apple Development identity. An ad-hoc signed extension is not offered in Control Center.
 
 ## Phase 1.5: block synthetic input at the source
-A `CGEventTap` in Helm that drops mouse and keyboard events posted by other processes while hands off is on,
-so a driver under any name is stopped. Needs the Accessibility grant for Helm.
+A `CGEventTap` in the app that drops mouse and keyboard events posted by other processes while hands off is on,
+so a driver under any name is stopped. Needs the Accessibility grant for the app.

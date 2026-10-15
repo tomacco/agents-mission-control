@@ -1,13 +1,13 @@
 import SwiftUI
 import Observation
 
-// Helm: one menu bar pill for working next to local agents: Clawd (hands off), caffeinate,
+// Agents Mission Control: one menu bar pill for working next to local agents: Clawd (hands off), caffeinate,
 // localhost. Clicking Clawd toggles hands off; anywhere else opens the glass panel.
-// Hands off only flips a flag; enforcement lives in bin/helmd and hooks/hands-off-guard.sh,
+// Hands off only flips a flag; enforcement lives in bin/amcd and hooks/hands-off-guard.sh,
 // so the switch keeps working when this app is not running.
 
 @main
-struct HelmApp: App {
+struct MissionControlApp: App {
     @NSApplicationDelegateAdaptor(BarItem.self) private var bar
     var body: some Scene { Settings { EmptyView() } }
 }
@@ -33,11 +33,11 @@ struct Caffeine {
 }
 
 @Observable
-final class Helm {
-    static let shared = Helm()
-    static let root = Bundle.main.object(forInfoDictionaryKey: "HelmRoot") as? String
-        ?? FileManager.default.homeDirectoryForCurrentUser.appendingPathComponent("git/github.com/tomacco/helm").path
-    static let flag = FileManager.default.homeDirectoryForCurrentUser.appendingPathComponent(".helm/hands-off")
+final class MissionControl {
+    static let shared = MissionControl()
+    static let root = Bundle.main.object(forInfoDictionaryKey: "AMCRoot") as? String
+        ?? FileManager.default.homeDirectoryForCurrentUser.appendingPathComponent("git/github.com/tomacco/agents-mission-control").path
+    static let flag = FileManager.default.homeDirectoryForCurrentUser.appendingPathComponent(".amc/hands-off")
 
     var handsOff = false
     var handsOffSince: Date?
@@ -59,7 +59,7 @@ final class Helm {
         let attrs = try? FileManager.default.attributesOfItem(atPath: Self.flag.path)
         handsOff = attrs != nil
         handsOffSince = attrs?[.creationDate] as? Date
-        enforcerRunning = !sh("/usr/bin/pgrep", "-f", "bin/helmd").isEmpty
+        enforcerRunning = !sh("/usr/bin/pgrep", "-f", "bin/amcd").isEmpty
         caffeine = Self.readCaffeine()
     }
 
@@ -77,7 +77,7 @@ final class Helm {
         } else {
             try? FileManager.default.createDirectory(at: Self.flag.deletingLastPathComponent(), withIntermediateDirectories: true)
             try? "\(ISO8601DateFormatter().string(from: Date())) panel\n".write(to: Self.flag, atomically: true, encoding: .utf8)
-            // Silence now, even if helmd is not running.
+            // Silence now, even if amcd is not running.
             _ = sh("/usr/bin/pkill", "-9", "-U", "\(getuid())", "-x", "say|afplay|uidriver|cliclick")
         }
         refreshFast()

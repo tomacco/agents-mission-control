@@ -27,13 +27,13 @@ struct Glyph: View {
 }
 
 struct Panel: View {
-    let helm: Helm
+    let mc: MissionControl
     var body: some View {
         GlassEffectContainer(spacing: 10) {
             VStack(spacing: 10) {
-                HandsOffTile(helm: helm)
-                CaffeineTile(helm: helm)
-                ServersTile(helm: helm)
+                HandsOffTile(mc: mc)
+                CaffeineTile(mc: mc)
+                ServersTile(mc: mc)
             }
         }
         .padding(12)
@@ -42,14 +42,14 @@ struct Panel: View {
 }
 
 struct HandsOffTile: View {
-    let helm: Helm
+    let mc: MissionControl
     var body: some View {
-        Button { helm.toggleHandsOff() } label: {
+        Button { mc.toggleHandsOff() } label: {
             Tile {
                 HStack(spacing: 12) {
-                    Glyph(symbol: helm.handsOff ? "hand.raised.fill" : "hand.raised", on: helm.handsOff, tint: .red)
+                    Glyph(symbol: mc.handsOff ? "hand.raised.fill" : "hand.raised", on: mc.handsOff, tint: .red)
                     VStack(alignment: .leading, spacing: 2) {
-                        Text(helm.handsOff ? "Hands off" : "Agents").font(.headline)
+                        Text(mc.handsOff ? "Hands off" : "Agents").font(.headline)
                         Text(subtitle).font(.subheadline).foregroundStyle(.secondary)
                     }
                     Spacer()
@@ -61,20 +61,20 @@ struct HandsOffTile: View {
     }
 
     var subtitle: String {
-        if !helm.enforcerRunning { return "Enforcer not running (run install.sh)" }
-        guard helm.handsOff else { return "May talk and use the mouse" }
-        let since = helm.handsOffSince.map { $0.formatted(date: .omitted, time: .shortened) } ?? ""
+        if !mc.enforcerRunning { return "Enforcer not running (run install.sh)" }
+        guard mc.handsOff else { return "May talk and use the mouse" }
+        let since = mc.handsOffSince.map { $0.formatted(date: .omitted, time: .shortened) } ?? ""
         return "No voice, sound or mouse · since \(since)"
     }
 }
 
 struct CaffeineTile: View {
-    let helm: Helm
+    let mc: MissionControl
     var body: some View {
-        let c = helm.caffeine
+        let c = mc.caffeine
         Tile {
             VStack(alignment: .leading, spacing: 10) {
-                Button { c == nil ? start(nil) : helm.caffeinate(nil) } label: {
+                Button { c == nil ? start(nil) : mc.caffeinate(nil) } label: {
                     HStack(spacing: 12) {
                         Mug(size: 26, color: c == nil ? .primary : .white, steaming: c != nil).offset(y: -1)
                             .frame(width: 40, height: 40)
@@ -101,26 +101,26 @@ struct CaffeineTile: View {
     }
 
     var subtitle: String {
-        guard let c = helm.caffeine else { return "Off" }
+        guard let c = mc.caffeine else { return "Off" }
         let mode = c.screen ? "Screen on" : "Awake"
         return c.left.map { "\(mode) · \(short($0)) left" } ?? "\(mode) · until stopped"
     }
 
     // A duration chip is lit while that preset runs; clicking a lit chip stops caffeinate.
     func duration(_ label: String, _ secs: Int?) -> some View {
-        let on = helm.caffeine.map { $0.total == secs } ?? false
-        return chip(Text(label), on: on) { on ? helm.caffeinate(nil) : start(secs) }
+        let on = mc.caffeine.map { $0.total == secs } ?? false
+        return chip(Text(label), on: on) { on ? mc.caffeinate(nil) : start(secs) }
     }
 
     // Screen is a modifier: it keeps the current duration and switches the display on or off.
     var screenChip: some View {
-        let c = helm.caffeine, on = c?.screen ?? false
+        let c = mc.caffeine, on = c?.screen ?? false
         return chip(Label("Screen", systemImage: "display"), on: on, tint: Art.amber) {
-            helm.caffeinate(on ? "-i" : "-di", seconds: c?.left)
+            mc.caffeinate(on ? "-i" : "-di", seconds: c?.left)
         }
     }
 
-    func start(_ secs: Int?) { helm.caffeinate(helm.caffeine?.screen == true ? "-di" : "-i", seconds: secs) }
+    func start(_ secs: Int?) { mc.caffeinate(mc.caffeine?.screen == true ? "-di" : "-i", seconds: secs) }
 
     func chip<L: View>(_ label: L, on: Bool, tint: Color = Art.roast, action: @escaping () -> Void) -> some View {
         Button(action: action) {
@@ -165,11 +165,11 @@ struct Puff: View {
 }
 
 struct ServersTile: View {
-    let helm: Helm
+    let mc: MissionControl
 
     // One row per project; a project often serves several ports (a deck build spawns many).
     var groups: [(name: String, servers: [Server])] {
-        Dictionary(grouping: helm.servers, by: \.name).map { ($0.key, $0.value.sorted { $0.port < $1.port }) }
+        Dictionary(grouping: mc.servers, by: \.name).map { ($0.key, $0.value.sorted { $0.port < $1.port }) }
             .sorted { $0.name < $1.name }
     }
 
@@ -179,14 +179,14 @@ struct ServersTile: View {
                 HStack {
                     Text("Localhost").font(.headline)
                     Spacer()
-                    Button { helm.refreshServers() } label: { Image(systemName: "arrow.clockwise") }
+                    Button { mc.refreshServers() } label: { Image(systemName: "arrow.clockwise") }
                         .buttonStyle(.plain).foregroundStyle(.secondary)
                 }
-                if helm.servers.isEmpty {
+                if mc.servers.isEmpty {
                     Text("Nothing served from ~").font(.subheadline).foregroundStyle(.secondary)
                 }
                 ForEach(groups, id: \.name) { g in row(g.name, g.servers) }
-                if !helm.servers.isEmpty {
+                if !mc.servers.isEmpty {
                     Text("Click a port to open · right-click to stop").font(.caption2).foregroundStyle(.tertiary)
                 }
             }
@@ -210,7 +210,7 @@ struct ServersTile: View {
                 }
                 .buttonStyle(.plain)
                 .help(s.title.isEmpty ? s.cmd : s.title)
-                .contextMenu { Button("Stop \(s.cmd) (pid \(s.pid))") { helm.kill(s) } }
+                .contextMenu { Button("Stop \(s.cmd) (pid \(s.pid))") { mc.kill(s) } }
             }
         }
         .padding(.vertical, 2)
