@@ -9,7 +9,7 @@ for f in 00 21; do
   print "\n  frame $f (left to right: ${(k)SETS})"
   cols=()
   for name set in ${(kv)SETS}; do
-    cols+=("$(chafa -f symbols --symbols $set -c full --color-extractor median --dither none --size 22x11 --bg 1e1e1e $D/lock-$f.png)")
+    cols+=("$(chafa -f symbols --symbols $set --probe off -c full --color-extractor median --dither none --size 22x11 --bg 1e1e1e $D/lock-$f.png)")
   done
   paste -d '   ' <(print -r -- $cols[1]) <(print -r -- $cols[2]) <(print -r -- $cols[3]) <(print -r -- $cols[4]) <(print -r -- $cols[5])
 done

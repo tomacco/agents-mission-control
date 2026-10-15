@@ -41,7 +41,7 @@ function scene(p, lift, swing) {
   const bp = [p[0], p[1] + 0.48, p[2]]
   let body = roundBox(bp, [0.72, 0.42, 0.3], 0.14)
   const kp = [p[0], p[1] + 0.4, p[2]]
-  const hole = Math.min(len(kp[0], kp[1] - 0.06) - 0.095, Math.max(Math.abs(kp[0]) - 0.04, Math.abs(kp[1] + 0.12) - 0.15))
+  const hole = Math.min(len(kp[0], kp[1] - 0.06) - 0.12, Math.max(Math.abs(kp[0]) - 0.055, Math.abs(kp[1] + 0.12) - 0.16))
   const cut = Math.max(hole, -(p[2] - 0.2))
   body = Math.max(body, -cut)
   // shackle: arc + two legs, raised by lift, then swung around the left leg (x = -R)
@@ -127,13 +127,13 @@ function png(w, h, pose) {
     raw[y * (w * 4 + 1)] = 0
     for (let x = 0; x < w; x++) {
       let acc = [0, 0, 0], hits = 0
-      for (let sy = 0; sy < 2; sy++) for (let sx = 0; sx < 2; sx++) {
-        const c = shade((x + (sx + 0.5) / 2 - w / 2) * scale, (h / 2 - (y + (sy + 0.5) / 2)) * scale + 0.02, pose.yaw, pose.tilt, pose.lift, pose.swing)
+      for (let sy = 0; sy < 3; sy++) for (let sx = 0; sx < 3; sx++) {
+        const c = shade((x + (sx + 0.5) / 3 - w / 2) * scale, (h / 2 - (y + (sy + 0.5) / 3)) * scale + 0.02, pose.yaw, pose.tilt, pose.lift, pose.swing)
         if (c) { acc = acc.map((v, i) => v + c[i]); hits++ }
       }
       const o = y * (w * 4 + 1) + 1 + x * 4
       if (hits) { raw[o] = Math.round(acc[0] / hits * 255); raw[o + 1] = Math.round(acc[1] / hits * 255); raw[o + 2] = Math.round(acc[2] / hits * 255) }
-      raw[o + 3] = Math.round(hits / 4 * 255)
+      raw[o + 3] = hits >= 5 ? 255 : 0  // opaque or empty: half-covered edge pixels become slivers in symbol output
     }
   }
   const crcTable = Array.from({ length: 256 }, (_, n) => { let c = n; for (let k = 0; k < 8; k++) c = c & 1 ? 0xedb88320 ^ (c >>> 1) : c >>> 1; return c >>> 0 })
@@ -149,7 +149,7 @@ const ease = t => t < 0.5 ? 2 * t * t : 1 - Math.pow(-2 * t + 2, 2) / 2
 const poses = []
 for (let i = 0; i < 6; i++) poses.push({ yaw: YAW, tilt: TILT, lift: 0, swing: 0 })
 for (let i = 1; i <= 6; i++) poses.push({ yaw: YAW, tilt: TILT, lift: ease(i / 6), swing: 0 })
-for (let i = 1; i <= 10; i++) poses.push({ yaw: YAW, tilt: TILT, lift: 1, swing: ease(i / 10) * 1.75 })
+for (let i = 1; i <= 10; i++) poses.push({ yaw: YAW, tilt: TILT, lift: 1, swing: ease(i / 10) * Number(process.env.LOCK_SWING ?? 0.75) })
 
 const SIZES = { hero: [16, 13], pane: [12, 10] }
 const rgbOf = c => `${parseInt(c.slice(1, 3), 16)};${parseInt(c.slice(3, 5), 16)};${parseInt(c.slice(5, 7), 16)}`
