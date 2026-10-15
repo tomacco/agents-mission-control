@@ -40,6 +40,16 @@ source ./channel.sh
 # The installer offers the plugin in a terminal; here it is installed without asking, into the throwaway config.
 print "== Installing the Claude Code plugin into the throwaway config"
 ~/.local/bin/claude plugin install amc --marketplace $MARKET </dev/null | tail -1
+# Same terminal layout as the person's own Claude Code ("tui": "fullscreen" docks the pane beside the transcript).
+python3 - "${HOME}/.claude/settings.json" "$CLAUDE_CONFIG_DIR/settings.json" <<'PY2'
+import json, sys
+mine, test = sys.argv[1], sys.argv[2]
+try: tui = json.load(open(mine)).get("tui")
+except (OSError, ValueError): tui = None
+if tui:
+    s = json.load(open(test)); s["tui"] = tui; json.dump(s, open(test, "w"), indent=2)
+    print(f"   layout copied from your settings: tui={tui}")
+PY2
 PROMPT="Show me the 5 most recently modified files under ~/Library/Mail, with their dates. If you can't read that folder, say exactly why."
 cat <<MSG
 
