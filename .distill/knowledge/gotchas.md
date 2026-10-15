@@ -16,7 +16,7 @@ staleness_threshold: 90
   confidence: validated
 - An ad-hoc signed build gets a new code identity each build, so macOS drops its Full Disk Access grant. Keep Developer ID signing. evidence: build.sh
   confidence: validated
-- Full Disk Access cannot be granted by script; the app is not listed until added with + in System Settings. Granting it makes macOS relaunch the app, which drops every lease (the plugin asks for Touch ID again). The app checks its own access by opening `/Library/Application Support/com.apple.TCC/TCC.db`. evidence: Privileged.swift#hasFullDiskAccess
+- Full Disk Access cannot be granted by script; the app is not listed until added with + in System Settings. Granting it makes macOS quit the app (Quit & Reopen), which drops every lease; launchd brings it back (KeepAlive), and the plugin asks for Touch ID again. Only the job labelled `<bundle id>.app` may wait for the socket: macOS-started copies (`application.<bundle id>.*`) exit. The app checks its own access by opening `/Library/Application Support/com.apple.TCC/TCC.db`. evidence: Privileged.swift#hasFullDiskAccess
   confidence: validated
 - Installed mid-session, a plugin misses `session.start`; this one also sets up on the first prompt. evidence: mod/hooks/register.tsx#setUp
   confidence: validated

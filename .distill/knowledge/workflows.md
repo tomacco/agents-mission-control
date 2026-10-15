@@ -12,7 +12,7 @@ staleness_threshold: 60
   confidence: validated
 - `./install.sh` (idempotent; animated in a terminal, plain with `AMC_PLAIN=1`; `AMC_NO_GRANT=1` skips the Full Disk Access step). evidence: install.sh
   confidence: validated
-- [IMPORTANT] install.sh does not restart a running app: quit it, then `open -a ~/Applications/AgentsMissionControl.app`. evidence: install.sh
+- install.sh restarts the app: launchd runs the binary (KeepAlive), and reloading the job restarts it. An instance started outside launchd (by 0.2.0 and earlier, or by macOS) keeps the socket until it quits; launchd's copy waits for it. evidence: launchd/co.tomac.amc.app.plist, main.swift
   confidence: validated
 - A separate test copy: `AMC_CHANNEL=test ./install.sh` and `AMC_CHANNEL=test ./uninstall.sh --yes`. evidence: channel.sh
   confidence: validated
@@ -20,7 +20,7 @@ staleness_threshold: 60
 ## Test
 - `zsh tests/test-privileged.sh` (needs no person) and `--touch-id` (two Touch ID prompts), from a Claude Code session. evidence: tests/test-privileged.sh
   confidence: validated
-- `zsh tests/test-grant-order.sh` (opens real windows with a test copy). `zsh tests/try-install.sh` (whole install as a new user, then removed). evidence: tests/
+- `zsh tests/test-keepalive.sh` (the app comes back after it quits; a second copy steps aside). `zsh tests/test-grant-order.sh` (opens real windows with a test copy). `zsh tests/try-install.sh` (whole install as a new user, then removed). evidence: tests/
   confidence: validated
 
 ## Plugin

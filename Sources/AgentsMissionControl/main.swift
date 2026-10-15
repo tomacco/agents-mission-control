@@ -7,6 +7,18 @@ import AppKit
 final class AppDelegate: NSObject, NSApplicationDelegate {
     func applicationDidFinishLaunching(_ notification: Notification) {
         Privileged.shared.onGrant = { requestFullDiskAccess() }
+        // One instance serves the socket. launchd keeps its copy alive; a copy macOS reopens on its own (after
+        // the Full Disk Access switch) must not take the socket from a live one, so it leaves instead.
+        if Privileged.socketAnswers() {
+            // launchd names its job "<bundle id>.app"; macOS-started apps get "application.<bundle id>.<n>.<n>".
+            let job = ProcessInfo.processInfo.environment["XPC_SERVICE_NAME"] ?? ""
+            if job != (Bundle.main.bundleIdentifier ?? "") + ".app" { exit(0) }
+            DispatchQueue.global().async {  // launchd's copy waits until the other one is gone, then serves
+                while Privileged.socketAnswers() { sleep(2) }
+                DispatchQueue.main.async { Privileged.shared.start() }
+            }
+            return
+        }
         Privileged.shared.start()
     }
 }

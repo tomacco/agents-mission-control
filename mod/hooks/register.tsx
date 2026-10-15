@@ -38,10 +38,26 @@ const CLIENT = [
   'sys.stdout.write(buf.decode())',
 ].join('\n')
 
-async function call($: EngineInterface, req: Record<string, unknown>, timeoutMs = 15000): Promise<Reply> {
-  const socket = (await $.env.get('AMC_SOCKET')) || `${await $.env.get('HOME')}/.amc/amc.sock`
+async function ask($: EngineInterface, socket: string, req: Record<string, unknown>, timeoutMs: number): Promise<Reply> {
   const { stdout } = await $.process.run(['/usr/bin/python3', '-I', '-c', CLIENT, socket], { stdin: JSON.stringify(req), timeoutMs })
   try { return JSON.parse(stdout) } catch { return { error: `no reply from Agents Mission Control: ${stdout.slice(0, 200)}` } }
+}
+
+// When the app is not running, start it (by bundle id: ~/.amc is co.tomac.amc, ~/.amc-test co.tomac.amc.test)
+// and give it a few seconds, so the person is not asked to do what the plugin can.
+async function call($: EngineInterface, req: Record<string, unknown>, timeoutMs = 15000): Promise<Reply> {
+  const socket = (await $.env.get('AMC_SOCKET')) || `${await $.env.get('HOME')}/.amc/amc.sock`
+  const r = await ask($, socket, req, timeoutMs)
+  if (!r.error?.includes('is not running')) return r
+  const channel = socket.match(/\.amc-([^/]+)\/amc\.sock$/)?.[1]
+  const started = await $.process.run(['/usr/bin/open', '-g', '-b', `co.tomac.amc${channel ? '.' + channel : ''}`])
+  if (started.exitCode !== 0) return r
+  for (let i = 0; i < 10; i++) {
+    await $.process.run(['/bin/sleep', '1'])
+    const again = await ask($, socket, { op: 'status' }, 3000)
+    if (!again.error) return ask($, socket, req, timeoutMs)
+  }
+  return r
 }
 
 const APPROVAL_MS = 150000  // the app waits up to 2 minutes for Touch ID
