@@ -27,17 +27,20 @@ const P = {
   open: '#2F9E6E', openText: '#FFFFFF', shut: '#2E3140', shutText: '#AEB4C6', touch: ['#FF6B8B', '#FF2D55'],
 }
 
-// Touch ID, drawn with rounded box lines (they join without seams); a scan line moves down while it waits.
+// Touch ID: a fingerprint in Braille dots (2x4 per cell), ridges looping around a core inside an oval.
+// Generated once by a small script; a scan line moves down it while the prompt waits.
 const FINGERPRINT = [
-  '    ╭───────╮    ',
-  '  ╭─╯ ╭───╮ ╰─╮  ',
-  ' ╭╯ ╭─╯╭─╮╰─╮ ╰╮ ',
-  ' │ ╭╯ ╭╯ ╰╮ ╰╮ │ ',
-  ' │ │  │ │ │  │ │ ',
-  ' │ │  │ │ ╰╮ │ │ ',
-  ' ╰╮│  │ ╰╮ │ │╭╯ ',
-  '  │╰╮ ╰╮ │ ╰╮│  ',
-  '  ╰╮╰╮ ╰─╯  ╰╯  ',
+  '    ⡠⠔⣈⠴⠒⠒⠒⠲⠤⡑⢦⡀    ',
+  '  ⢀⠞⣠⠞⣡⠖⣉⣉⣉⣉⠒⢌⠢⡘⢦   ',
+  '  ⡞⣰⠁⡜⢡⠊⡡⠤⠤⢤⡙⢆⢣⠹⡌⢇  ',
+  ' ⢀⡇⡇⢸⠁⡇⡜⢠⠖⠒⢦⠹⡘⡌⡇⢳⢸⠐ ',
+  '⢰ ⡇⡇⢸ ⡇⡇⢸⢸⡇⢸⢠⠁⠇⡇⢸⢸ ⡆',
+  '⢸ ⡇⡇⢸ ⡇⡇⡎⣸⡇⡎⢸⢸ ⡇⢸⢸⡀⡇',
+  '⠈ ⡇⡇⢸⢰ ⠃⡇⢻⡇⣧⢸⠸⡀⡇⢸ ⡇⠁',
+  '  ⡇⢇⢸⠘⡄⡆⠣⣌⡥⠏⡸⢰⠃⡇⢸ ⠇ ',
+  '  ⠱⠸⡌⢧⠱⣌⠲⠤⠴⠚⣡⠎⡼⢁⡏⠈  ',
+  '    ⠘⢦⡑⢨⣙⣒⣛⣉⡡⠖⡠⠋    ',
+  '      ⠉⠒ ⠭⠤ ⠐⠈      ',
 ]
 const DENIED = /Operation not permitted|permission to view it|EPERM/
 
