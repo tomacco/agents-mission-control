@@ -20,7 +20,7 @@ staleness_threshold: 60
 ## Test
 - `zsh tests/test-hands-off.sh` (18 checks, private flag, safe anytime). evidence: tests/test-hands-off.sh
   confidence: validated
-- `zsh tests/test-privileged.sh` (13 checks, needs the installed app with Full Disk Access; run from a Claude Code session without the plugin: `! zsh tests/test-privileged.sh`). evidence: tests/test-privileged.sh
+- `zsh tests/test-privileged.sh` (15 checks, needs the installed app with Full Disk Access; run from a Claude Code session without the plugin: `! zsh tests/test-privileged.sh`). evidence: tests/test-privileged.sh
   confidence: validated
 
 ## Preview UI

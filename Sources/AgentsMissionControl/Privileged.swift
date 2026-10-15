@@ -11,7 +11,8 @@ import Darwin
 //   open  key agent subtitle reason paths scope(session|once)   after the person approved it in the mod
 //   run   key run_id command reason cwd paths timeout          output goes to ~/.amc/runs/<run_id>.log
 //   end   key                closes the lease
-//   status                   active leases, no keys
+//   status                   active leases (no keys) and whether this app has Full Disk Access
+//   grant                    opens the Full Disk Access settings and shows this app in Finder, ready to drag in
 // Every caller must descend from a Claude Code binary signed by Anthropic, checked live by its code
 // signature, and every request lands in ~/.amc/trace.jsonl, each line chained to the hash of the previous.
 
@@ -34,6 +35,14 @@ final class Privileged {
     private(set) var leases: [Int32: Lease] = [:]
     private var lastHash = ""
     var onChange: (() -> Void)?
+    var onGrant: (() -> Void)?
+
+    // The system TCC database exists on every Mac and only Full Disk Access opens it.
+    static var hasFullDiskAccess: Bool {
+        let fd = open("/Library/Application Support/com.apple.TCC/TCC.db", O_RDONLY)
+        if fd >= 0 { close(fd); return true }
+        return false
+    }
 
     func start() {
         try? FileManager.default.createDirectory(at: Self.runsDir, withIntermediateDirectories: true,
@@ -94,7 +103,8 @@ final class Privileged {
 
     private func answer(_ op: String, _ r: [String: Any], chain: [(pid: Int32, path: String)],
                         entry: inout [String: Any]) -> [String: Any] {
-        if op == "status" { return ["leases": statusRows()] }
+        if op == "status" { return ["leases": statusRows(), "fda": Self.hasFullDiskAccess] }
+        if op == "grant" { if r["dry"] == nil { DispatchQueue.main.async { self.onGrant?() } }; return ["ok": true, "fda": Self.hasFullDiskAccess] }
         guard let claude = chain.first(where: { isClaude($0.pid) })?.pid else {
             return ["error": "caller is not a Claude Code session signed by Anthropic"]
         }
@@ -125,6 +135,9 @@ final class Privileged {
             changed()
             return ["ok": had]
         case "run":
+            guard Self.hasFullDiskAccess else {
+                return ["error": "Agents Mission Control has no Full Disk Access yet: grant it in System Settings (op grant opens it)"]
+            }
             lock.lock()
             guard var lease = leases[claude] else { lock.unlock(); return ["error": "no open lease: ask the person first"] }
             lease.runs += 1

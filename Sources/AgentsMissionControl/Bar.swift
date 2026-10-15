@@ -82,6 +82,7 @@ struct Pill: View {
             Pixels(grid: Art.clawd, cell: 1.5, color: mc.handsOff ? .red : Art.orange)
             Pixels(grid: mc.handsOff ? Art.pause : Art.waves, cell: 1.5,
                    color: mc.handsOff ? .red : .primary.opacity(0.7))
+            if !mc.fullDiskAccess { Circle().fill(Art.amber).frame(width: 5, height: 5).offset(y: -5) }
         }
         .padding(.leading, 9).padding(.trailing, 6)
         .frame(maxHeight: .infinity)

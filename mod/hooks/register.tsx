@@ -20,11 +20,39 @@ const PANE = 'amc'
 const COLORS = ['#D97757', '#E5484D', '#30A46C', '#3E63DD', '#8E4EC6', '#F76B15', '#12A594', '#D6409F', '#FFC53D']
 const DENIED = /Operation not permitted|permission to view it|EPERM/
 
-type Reply = { error?: string; key?: string; exit?: number; log?: string; bytes?: number; sha256?: string; timed_out?: boolean }
+type Reply = { error?: string; key?: string; fda?: boolean; exit?: number; log?: string; bytes?: number; sha256?: string; timed_out?: boolean }
 
 async function call($: EngineInterface, req: Record<string, unknown>, timeoutMs = 15000): Promise<Reply> {
   const { stdout } = await $.process.run([`${$.plugin.root}/../bin/amc-call`], { stdin: JSON.stringify(req), timeoutMs })
   try { return JSON.parse(stdout) } catch { return { error: `no reply from Agents Mission Control: ${stdout.slice(0, 200)}` } }
+}
+
+// The app forgets keys and leases when it restarts (macOS relaunches it when Full Disk Access is switched on):
+// take a fresh key, and reopen a session-wide approval the person already gave.
+async function send($: EngineInterface, req: Record<string, unknown>, timeoutMs?: number): Promise<Reply> {
+  let r = await call($, { ...req, key: await read($, key) }, timeoutMs)
+  if (r.error?.includes('bad or missing session key') || r.error?.includes('no reply')) {
+    const reg = await call($, { op: 'register' })
+    if (!reg.key) return r
+    await update($, key, () => reg.key!)
+    r = await call($, { ...req, key: reg.key }, timeoutMs)
+  }
+  const l = await read($, lease), who = await read($, identity)
+  if (req.op === 'run' && r.error?.includes('no open lease') && l?.scope === 'session' && who) {
+    await call($, { op: 'open', key: await read($, key), ...who, reason: l.reason, paths: l.paths, scope: 'session' })
+    r = await call($, { ...req, key: await read($, key) }, timeoutMs)
+  }
+  return r
+}
+
+// macOS has no prompt for Full Disk Access: the app opens the settings pane and shows itself in Finder,
+// and this waits for the switch so the agent's request carries on by itself.
+async function waitForAccess($: EngineInterface): Promise<boolean> {
+  for (let i = 0; i < 150; i++) {
+    if ((await call($, { op: 'status' })).fda === true) return true
+    await $.process.run(['/bin/sleep', '2'])
+  }
+  return false
 }
 
 export const register: Register = on => {
@@ -37,6 +65,9 @@ export const register: Register = on => {
       if (r.key) await update($, key, () => r.key!)
       else $.ui.log(`amc: ${r.error}`, { to: 'debug' })
     }
+    const st = await call($, { op: 'status' })
+    if (st.error) $.ui.status('⚠ Agents Mission Control is not running: privileged sessions are off')
+    else if (st.fda === false) $.ui.status('⚠ Agents Mission Control has no Full Disk Access yet (asked on first use)')
     await $.tool.register({
       name: TOOL,
       isDeferred: false,
@@ -64,14 +95,36 @@ export const register: Register = on => {
   })
 
   on('tool.call', { tool: `mcp__amc__${TOOL}` }, async ($, e: any) => {
-    const sessionKey = await read($, key)
-    if (!sessionKey) return { deny: 'amc: this session has no key from Agents Mission Control (is the app running?). Tell the person.' }
+    const st = await call($, { op: 'status' })
+    if (st.error) return { deny: `amc: ${st.error}. Tell the person to install or start Agents Mission Control.` }
     let who = await read($, identity)
     if (!who) {
       who = { agent: String(e.agent).slice(0, 40), subtitle: String(e.subtitle).slice(0, 80) }
       await update($, identity, () => who)
     }
     const paths: string[] = Array.isArray(e.paths) ? e.paths.map(String) : []
+
+    if (st.fda === false) {
+      let answer = 'Not now'
+      try {
+        answer = await $.ui.ask(
+          `${who.agent} (${who.subtitle}) asks for Full Disk Access (${e.reason}), but Agents Mission Control does not have it yet. ` +
+          'Open System Settings and Finder so you can switch it on?',
+          { header: 'Disk access', options: ['Open settings, then allow for this session', 'Not now'] },
+        )
+      } catch { /* dismissed or headless */ }
+      if (!answer.startsWith('Open settings')) {
+        return { deny: 'Agents Mission Control has no Full Disk Access and the person chose not to grant it now. Continue without it.' }
+      }
+      await call($, { op: 'grant' })
+      $.ui.status('🔒 waiting for Full Disk Access: drag AgentsMissionControl.app into the list and switch it on')
+      if (!(await waitForAccess($))) {
+        return { deny: 'Full Disk Access was not switched on within 5 minutes. Ask the person to finish it in System Settings, then retry.' }
+      }
+      const opened = await send($, { op: 'open', ...who, reason: e.reason, paths, scope: 'session' })
+      if (opened.error) return { deny: `amc: ${opened.error}` }
+      await update($, lease, () => ({ scope: 'session', reason: String(e.reason), paths, since: new Date().toISOString() }))
+    }
 
     if (!(await read($, lease))) {
       let answer = 'Deny'
@@ -85,7 +138,7 @@ export const register: Register = on => {
         return { deny: 'The person denied Full Disk Access. Do not retry; continue without it or ask them why.' }
       }
       const scope = answer === 'Allow once' ? 'once' : 'session'
-      const opened = await call($, { op: 'open', key: sessionKey, ...who, reason: e.reason, paths, scope })
+      const opened = await send($, { op: 'open', ...who, reason: e.reason, paths, scope })
       if (opened.error) return { deny: `amc: ${opened.error}` }
       await update($, lease, () => ({ scope, reason: String(e.reason), paths, since: new Date().toISOString() }))
     }
@@ -110,7 +163,7 @@ export const register: Register = on => {
     })()
 
     const timeout = Math.min(Math.max(Number(e.timeout_seconds) || 120, 1), 600)
-    const r = await call($, { op: 'run', key: sessionKey, run_id: id, command: e.command, reason: e.reason, cwd: e.cwd, paths, timeout },
+    const r = await send($, { op: 'run', run_id: id, command: e.command, reason: e.reason, cwd: e.cwd, paths, timeout },
                          (timeout + 15) * 1000)
     await live.return?.(undefined as never)
     await update($, runs, list => list.map(x => (x.id === id ? { ...x, exit: r.exit ?? -1 } : x)))

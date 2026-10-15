@@ -31,6 +31,7 @@ struct Panel: View {
     var body: some View {
         GlassEffectContainer(spacing: 10) {
             VStack(spacing: 10) {
+                if !mc.fullDiskAccess { AccessTile(mc: mc) }
                 HandsOffTile(mc: mc)
                 CaffeineTile(mc: mc)
                 ServersTile(mc: mc)
@@ -38,6 +39,27 @@ struct Panel: View {
         }
         .padding(12)
         .frame(width: 340)
+    }
+}
+
+// Shown only while the app lacks Full Disk Access, which privileged sessions need.
+struct AccessTile: View {
+    let mc: MissionControl
+    var body: some View {
+        Button { mc.requestFullDiskAccess() } label: {
+            Tile {
+                HStack(spacing: 12) {
+                    Glyph(symbol: "lock.shield", on: false, tint: .orange)
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text("Grant Full Disk Access").font(.headline)
+                        Text("Needed for privileged sessions · opens Settings").font(.subheadline).foregroundStyle(.secondary)
+                    }
+                    Spacer()
+                }
+                .contentShape(Rectangle())
+            }
+        }
+        .buttonStyle(.plain)
     }
 }
 

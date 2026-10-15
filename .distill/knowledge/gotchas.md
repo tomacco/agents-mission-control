@@ -17,7 +17,7 @@ staleness_threshold: 90
   confidence: validated
 - An ad-hoc signed build gets a new code identity each build, so macOS drops its Full Disk Access grant. Keep Developer ID signing. evidence: build.sh comment
   confidence: validated
-- Full Disk Access cannot be granted by script; the app is not listed until added with + in System Settings. Granting it makes macOS relaunch the app, so the socket is gone for a second or two. evidence: 2026-10-15 install
+- Full Disk Access cannot be granted by script; the app is not listed until added with + in System Settings. Granting it makes macOS relaunch the app, which drops every key and lease (the plugin re-registers). The app checks its own access by opening `/Library/Application Support/com.apple.TCC/TCC.db`. evidence: Privileged.swift#hasFullDiskAccess, 2026-10-15 install
   confidence: provisional
 - The privileged session key binds to the first caller in a claude process. `tests/test-privileged.sh` takes it, so the plugin then fails in that same session; and in a session where the plugin loaded first, the test skips the key checks. evidence: Privileged.swift#register, tests/test-privileged.sh
   confidence: validated

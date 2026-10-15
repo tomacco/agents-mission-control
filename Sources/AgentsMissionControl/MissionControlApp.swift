@@ -45,6 +45,7 @@ final class MissionControl {
     var caffeine: Caffeine?
     var servers: [Server] = []
     var leases: [[String: Any]] = []
+    var fullDiskAccess = true
     private var timer: Timer?
     private var serverTimer: Timer?
 
@@ -55,6 +56,7 @@ final class MissionControl {
         serverTimer = Timer.scheduledTimer(withTimeInterval: 10, repeats: true) { [weak self] _ in self?.refreshServers() }
         if !CommandLine.arguments.contains("--preview") {
             Privileged.shared.onChange = { [weak self] in self?.leases = Privileged.shared.statusRows() }
+            Privileged.shared.onGrant = { [weak self] in self?.requestFullDiskAccess() }
             Privileged.shared.start()
         }
     }
@@ -66,6 +68,14 @@ final class MissionControl {
         handsOffSince = attrs?[.creationDate] as? Date
         enforcerRunning = !sh("/usr/bin/pgrep", "-f", "bin/amcd").isEmpty
         caffeine = Self.readCaffeine()
+        fullDiskAccess = Privileged.hasFullDiskAccess
+    }
+
+    // macOS has no prompt for Full Disk Access, so take the person to the one toggle: the settings pane,
+    // and this app selected in Finder, ready to drag into the list.
+    func requestFullDiskAccess() {
+        NSWorkspace.shared.open(URL(string: "x-apple.systempreferences:com.apple.preference.security?Privacy_AllFiles")!)
+        NSWorkspace.shared.activateFileViewerSelecting([Bundle.main.bundleURL])
     }
 
     func refreshServers() {

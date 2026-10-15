@@ -8,6 +8,8 @@ j()   { python3 -c "import json,sys; d=json.load(sys.stdin); print(d.get('$1',''
 q()   { print -r -- "$1" | $call }
 
 q '{"op":"status"}' | grep -q leases && ok "status answers" || { bad "app not answering on ~/.amc/amc.sock"; exit 1 }
+q '{"op":"status"}' | grep -q '"fda":true' && ok "app reports its Full Disk Access" || bad "app reports no Full Disk Access: grant it, then rerun"
+q '{"op":"grant","dry":1}' | grep -q '"fda"' && ok "grant op answers" || bad "grant op"
 
 # A caller outside Claude Code (started by launchd) is refused.
 out=$(mktemp); launchctl submit -l co.tomac.amc.test -- /bin/zsh -c "print '{\"op\":\"register\"}' | $call > $out"
