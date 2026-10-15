@@ -34,7 +34,7 @@ test('the newest run comes first, and only the last few', () => {
 test('the pane draws, and says how to get the side panel when it sits above the prompt', async $ => {
   const ui = await $.ui.mount({ plugin: 'amc', surface: 'terminal', component: 'Pane', requestId: 'amc', props: props('dock') })
   const docked = texts(await ui.drawn()).join('|')
-  expect(docked).toContain('no access')
+  expect(docked).toContain('NO ACCESS')
   expect(docked).not.toContain('fullscreen')
   await ui.redraw(props('inline'))
   const inline = texts(await ui.drawn()).join('|')
