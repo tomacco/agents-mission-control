@@ -62,6 +62,10 @@ In Claude Code: `/plugin uninstall amc`.
 - `tests/test-grant-order.sh` checks that the grant step leaves System Settings in front of Finder.
 - `tests/try-install.sh` tries the whole install as a new user with a separate test copy, then removes it.
 
+## Credits
+
+The orb shown while Touch ID waits is drawn with the geometry engine of [thinking-orbs](https://libraries.dev/orbs) by Jakub Antalik, MIT license, vendored in `mod/vendor/thinking-orbs` with its license.
+
 ## Related
 
 [Agent Board](https://github.com/tomacco/agent-board) is the menu bar companion that used to live in this repository: hands off (agents may not speak, play sounds or drive input), caffeinate and the localhost list.

@@ -3,6 +3,7 @@ import type { EngineInterface, Register } from 'claude-code'
 
 import type { Identity, LeaseView, RunView } from '../types'
 import { GENERIC, ago, newestFirst, sessionName } from './format'
+import { orbRows } from './orb'
 
 // Full Disk Access for agents without giving it to Terminal. Agents Mission Control (the menu bar app) holds
 // the grant, asks the person with Touch ID before it opens access for a session, and runs the commands as
@@ -24,24 +25,10 @@ const PANE = 'amc'
 const COLORS = ['#E8836B', '#E5678F', '#9B7BE0', '#6E8BF0', '#3FB8AF', '#5CC98A', '#E8B04A', '#4FB3E8']
 const P = {
   steel: '#A7AEC0', keyhole: '#1E1A26', ok: '#4CC38A', bad: '#F06A6A', busy: '#E8B04A',
-  open: '#2F9E6E', openText: '#FFFFFF', shut: '#2E3140', shutText: '#AEB4C6', touch: ['#FF6B8B', '#FF2D55'],
+  open: '#2F9E6E', openText: '#FFFFFF', shut: '#2E3140', shutText: '#AEB4C6', touch: ['#FF2D55', '#FF6B8B', '#FFB3C4'],
 }
 
-// Touch ID: a fingerprint in Braille dots (2x4 per cell), ridges looping around a core inside an oval.
-// Generated once by a small script; a scan line moves down it while the prompt waits.
-const FINGERPRINT = [
-  '    ⡠⠔⣈⠴⠒⠒⠒⠲⠤⡑⢦⡀    ',
-  '  ⢀⠞⣠⠞⣡⠖⣉⣉⣉⣉⠒⢌⠢⡘⢦   ',
-  '  ⡞⣰⠁⡜⢡⠊⡡⠤⠤⢤⡙⢆⢣⠹⡌⢇  ',
-  ' ⢀⡇⡇⢸⠁⡇⡜⢠⠖⠒⢦⠹⡘⡌⡇⢳⢸⠐ ',
-  '⢰ ⡇⡇⢸ ⡇⡇⢸⢸⡇⢸⢠⠁⠇⡇⢸⢸ ⡆',
-  '⢸ ⡇⡇⢸ ⡇⡇⡎⣸⡇⡎⢸⢸ ⡇⢸⢸⡀⡇',
-  '⠈ ⡇⡇⢸⢰ ⠃⡇⢻⡇⣧⢸⠸⡀⡇⢸ ⡇⠁',
-  '  ⡇⢇⢸⠘⡄⡆⠣⣌⡥⠏⡸⢰⠃⡇⢸ ⠇ ',
-  '  ⠱⠸⡌⢧⠱⣌⠲⠤⠴⠚⣡⠎⡼⢁⡏⠈  ',
-  '    ⠘⢦⡑⢨⣙⣒⣛⣉⡡⠖⡠⠋    ',
-  '      ⠉⠒ ⠭⠤ ⠐⠈      ',
-]
+// While Touch ID is up the pane shows a breathing thinking orb (mod/hooks/orb.ts, engine by Jakub Antalik).
 const DENIED = /Operation not permitted|permission to view it|EPERM/
 
 type Reply = { error?: string; fda?: boolean; exit?: number; log?: string; bytes?: number; sha256?: string; timed_out?: boolean }
@@ -201,7 +188,7 @@ export const register: Register = on => {
       $.ui.status(`🔒 ${who.agent} asks for Full Disk Access: confirm with Touch ID`)
       await update($, asking, () => ({ reason: String(e.reason), paths }))
       await $.ui.open({ id: PANE, title: 'Privileged', columns: 36 })
-      spinner?.cancel(); spinner = $.clock.every(120, () => void update($, spin, n => n + 1))
+      spinner?.cancel(); spinner = $.clock.every(100, () => void update($, spin, n => n + 1))
       const opened = await call($, { op: 'open', ...who, reason: e.reason, paths, scope: 'session' }, APPROVAL_MS)
       spinner?.cancel(); spinner = undefined
       await update($, asking, () => null)
@@ -300,7 +287,7 @@ export const register: Register = on => {
       </Box>
     ))
     const badge = ask
-      ? <Text backgroundColor={P.touch[1]} color={P.openText} bold>{' ◉ TOUCH ID '}</Text>
+      ? <Text backgroundColor={P.touch[0]} color={P.openText} bold>{' ◉ TOUCH ID '}</Text>
       : l
       ? <Text backgroundColor={P.open} color={P.openText} bold>{' ● ACCESS OPEN '}</Text>
       : <Text backgroundColor={P.shut} color={P.shutText} bold>{' ○ NO ACCESS '}</Text>
@@ -337,9 +324,9 @@ export const register: Register = on => {
         </Box>
         {ask && (
           <Box flexDirection="column" marginTop={1} alignItems="center">
-            {FINGERPRINT.map((row, i) => (
-              <Text color={Math.abs(i - (frame % (FINGERPRINT.length + 4))) < 1 ? P.touch[0] : P.touch[1]}
-                    bold={Math.abs(i - (frame % (FINGERPRINT.length + 4))) < 1}>{row}</Text>
+            {orbRows('breathing', now / 1000, narrow ? 12 : 18, narrow ? 6 : 9).map(row => (
+              <Text>{row.map(cell => cell.level
+                ? <Text color={P.touch[3 - cell.level]}>{cell.ch}</Text> : <Text>{cell.ch}</Text>)}</Text>
             ))}
             <Text bold>Touch ID on your Mac</Text>
             <Text dimColor>approve to give this session access</Text>

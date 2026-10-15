@@ -1,6 +1,7 @@
 import { expect, test } from 'claude-code/testing'
 
 import { GENERIC, ago, newestFirst, sessionName } from '../hooks/format'
+import { orbRows } from '../hooks/orb'
 import type { RunView } from '../types'
 
 // Every string drawn, in order, so the test reads the pane as the person does.
@@ -60,4 +61,14 @@ test('a session without a usable name gets a stable one', () => {
   expect(sessionName('abc-123')).toMatch(/^[A-Z][a-z]+ [A-Z][a-z]+$/)
   for (const generic of ['claude', 'Claude Code', 'claude-code', 'agent', 'Assistant', '']) expect(GENERIC.test(generic)).toBe(true)
   expect(GENERIC.test('Quartermaster Overclocked Walrus')).toBe(false)
+})
+
+test('a thinking orb frame is drawn as Braille rows', () => {
+  const rows = orbRows('breathing', 1.3, 18, 9)
+  expect(rows.length).toBe(9)
+  expect(rows.every(r => r.length === 18)).toBe(true)
+  const inked = rows.flat().filter(c => c.level > 0)
+  expect(inked.length).toBeGreaterThan(20)
+  expect(inked.every(c => c.ch.charCodeAt(0) >= 0x2800 && c.ch.charCodeAt(0) <= 0x28ff)).toBe(true)
+  expect(orbRows('breathing', 1.3).map(r => r.map(c => c.ch).join(''))).not.toEqual(orbRows('breathing', 2.1).map(r => r.map(c => c.ch).join('')))
 })
