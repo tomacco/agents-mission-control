@@ -286,12 +286,41 @@ def full_disk_access(appname, sock):
 
 # ── end ───────────────────────────────────────────────────────────────────────
 
+MARKET = os.environ.get("AMC_MARKET", "tomacco/agents-mission-control")
+
+
+def install_plugin():
+    """The plugin is the half people forget, so offer to install it here (Claude Code's own CLI, user scope)."""
+    claude = shutil.which("claude") or os.path.expanduser("~/.local/bin/claude")
+    line = f"/plugin install amc --marketplace {MARKET}"
+    if not os.path.exists(claude):
+        w(f"\n  {B}Last step{R}, in Claude Code {fg(GREY)}(on your clipboard){R}:\n    {fg(ORANGE)}{line}{R}\n")
+        subprocess.run(["/usr/bin/pbcopy"], input=line, text=True); return
+    w(f"\n  {B}{gradient('The Claude Code plugin')}{R}\n\n")
+    w(f"  It gives agents the privileged_bash tool and shows each session beside the transcript.\n")
+    if not ask_yes("Install it into Claude Code now?"):
+        w(f"\n  Later, in Claude Code {fg(GREY)}(on your clipboard){R}:  {fg(ORANGE)}{line}{R}\n")
+        subprocess.run(["/usr/bin/pbcopy"], input=line, text=True); return
+    done = threading.Event(); out = {}
+    def run():
+        p = subprocess.run([claude, "plugin", "install", "amc", "--marketplace", MARKET], stdin=subprocess.DEVNULL,
+                           capture_output=True, text=True)
+        out["code"], out["text"] = p.returncode, (p.stdout + p.stderr).strip(); done.set()
+    threading.Thread(target=run, daemon=True).start()
+    tick = 0; w("\x1b[?25l")
+    while not done.wait(0.08):
+        w(f"\r\x1b[2K  {fg(ORANGE)}{SPIN[tick % len(SPIN)]}{R} Installing the plugin"); tick += 1
+    w("\x1b[?25h")
+    if out["code"] == 0:
+        w(f"\r\x1b[2K  {fg(GREEN)}✓ Plugin installed.{R} {fg(GREY)}New Claude Code sessions have it.{R}\n")
+    else:
+        w(f"\r\x1b[2K  {fg(RED)}✗ Plugin install failed.{R} In Claude Code instead: {fg(ORANGE)}{line}{R}\n")
+        for l in out["text"].splitlines()[-4:]: w(f"    {fg(GREY)}{l}{R}\n")
+
+
 def finale(appname):
-    line = "/plugin install amc --marketplace tomacco/agents-mission-control"
-    subprocess.run(["/usr/bin/pbcopy"], input=line, text=True)
+    install_plugin()
     w(f"\n  {B}{gradient('Installed.')}{R} It runs in the background, with nothing in the menu bar.\n\n")
-    w(f"  {B}Next{R}, in Claude Code {fg(GREY)}(on your clipboard){R}:\n")
-    w(f"    {fg(ORANGE)}{line}{R}\n\n")
     w(f"  {fg(GREY)}Remove it any time: ./uninstall.sh   ·   Log: {LOG}{R}\n")
     w(f"\n  {fg(GREY)}Made by{R} {B}{AUTHOR}{R} {fg(GREY)}({HANDLE}) ·{R} {fg(ORANGE)}{link('https://' + SITE, SITE)}{R}\n\n")
 
