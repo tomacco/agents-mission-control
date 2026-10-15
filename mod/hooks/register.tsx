@@ -43,6 +43,7 @@ async function call($: EngineInterface, req: Record<string, unknown>, timeoutMs 
 }
 
 const APPROVAL_MS = 150000  // the app waits up to 2 minutes for Touch ID
+const MAX_RUN_S = 585       // $.process.run allows ten minutes; the app's run plus a margin must fit inside
 
 // The app forgets leases when it restarts (macOS relaunches it when Full Disk Access is switched on):
 // ask for the session's access again, which shows Touch ID again, then retry.
@@ -81,7 +82,7 @@ async function setUp($: EngineInterface) {
         agent: { type: 'string', description: 'Your agent name (first call pins it for the session).' },
         subtitle: { type: 'string', description: 'Short context of this session, up to 8 words (pinned on first call).' },
         cwd: { type: 'string' },
-        timeout_seconds: { type: 'number', description: 'Default 120, at most 600.' },
+        timeout_seconds: { type: 'number', description: 'Default 120, at most 585.' },
       },
       required: ['command', 'reason', 'paths', 'agent', 'subtitle'],
     },
@@ -169,9 +170,14 @@ export const register: Register = on => {
       } catch { /* tail ended */ }
     })()
 
-    const timeout = Math.min(Math.max(Number(e.timeout_seconds) || 120, 1), 600)
-    const r = await send($, { op: 'run', run_id: id, command: e.command, reason: e.reason, cwd: e.cwd, paths, timeout },
-                         (timeout + 15) * 1000)
+    const timeout = Math.min(Math.max(Number(e.timeout_seconds) || 120, 1), MAX_RUN_S)
+    let r: Reply
+    try {
+      r = await send($, { op: 'run', run_id: id, command: e.command, reason: e.reason, cwd: e.cwd, paths, timeout },
+                     (timeout + 15) * 1000)
+    } catch (err) {
+      r = { error: `the call to the app failed: ${String(err).slice(0, 200)}` }
+    }
     await live.return?.(undefined as never)
     await update($, runs, list => list.map(x => (x.id === id ? { ...x, exit: r.exit ?? -1 } : x)))
     if ((await read($, lease))?.scope === 'once') await update($, lease, () => null)
@@ -181,7 +187,10 @@ export const register: Register = on => {
     const out = await $.process.run(['/bin/cat', r.log!])
     const text = out.stdout.length > 30000 ? out.stdout.slice(0, 30000) + `\n[truncated: ${r.bytes} bytes in ${r.log}]` : out.stdout
     return { result: `exit ${r.exit}${r.timed_out ? ' (timed out)' : ''}\n${text}` }
-  })
+  }).catch(($, e, next) => ({
+    // A hook that throws is skipped and the model reads only "no hook answered": say what went wrong instead.
+    deny: `amc: the privileged_bash handler failed (${String(next.error?.cause ?? next.error ?? 'unknown').slice(0, 200)}). Tell the person; do not work around it.`,
+  }))
 
   // Point the model at the privileged tool when Terminal's lack of Full Disk Access is the cause.
   const hint = `This failed because Terminal has no Full Disk Access. If the access is needed, retry with mcp__amc__${TOOL} and a reason.`

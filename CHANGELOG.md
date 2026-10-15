@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- Plugin 0.2.1: a `timeout_seconds` of 600 made the app call exceed Claude Code's ten-minute process limit, the hook threw and the agent read "no tool.call hook answered". Runs are capped at 585 s, failures inside the hook come back as a clear refusal, and the pane no longer sticks on a run that failed.
 - The installer offers to install the Claude Code plugin itself (one Y), since a manual `/plugin install` step was skipped in testing. `tests/try-install.sh` installs it into its throwaway config and puts the test prompt on the clipboard.
 
 ## 0.2.0 (2026-10-15)
