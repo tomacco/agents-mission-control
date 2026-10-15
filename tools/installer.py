@@ -220,7 +220,84 @@ def mock_frame(appname, chip_pos, row_on, toggle):
     return lines, (chip, chip_pos)
 
 
+# Big letters: one pixel is one column of background color, five rows tall (tall letters read well).
+FONT = {
+    "Y": ["X..X", "X..X", ".XX.", ".XX.", ".XX."], "O": [".XX.", "X..X", "X..X", "X..X", ".XX."],
+    "U": ["X..X", "X..X", "X..X", "X..X", ".XX."], "R": ["XXX.", "X..X", "XXX.", "X.X.", "X..X"],
+    "T": ["XXXX", ".XX.", ".XX.", ".XX.", ".XX."], "N": ["X..X", "XX.X", "X.XX", "X..X", "X..X"],
+    "A": [".XX.", "X..X", "XXXX", "X..X", "X..X"], "L": ["X...", "X...", "X...", "X...", "XXXX"],
+    "S": [".XXX", "X...", ".XX.", "...X", "XXX."], "E": ["XXXX", "X...", "XXX.", "X...", "XXXX"],
+    "!": ["X", "X", "X", ".", "X"], " ": ["..", "..", "..", "..", ".."],
+}
+
+
+def big(word, colors, shown=None):
+    """The word as five rows of background-colored cells. colors: start and end of a left-to-right gradient.
+    shown: how many columns are revealed (for a wipe)."""
+    cols = []
+    for ch in word:
+        glyph = FONT[ch]
+        for c in range(len(glyph[0])): cols.append([row[c] for row in glyph])
+        cols.append(["."] * 5)
+    n = len(cols); shown = n if shown is None else shown
+    rows = []
+    for r in range(5):
+        line = ""
+        for i, col in enumerate(cols):
+            on = col[r] == "X" and i < shown
+            line += (bg(mix(colors[0], colors[1], i / max(1, n - 1))) + " " + R) if on else " "
+        rows.append(line)
+    return rows, n
+
+
+def banner(text, colors, pulses=3):
+    """A big word that pulses a few times, to say: this part needs you."""
+    rows, n = big(text, colors)
+    pad = max(2, (min(cols(), 100) - n) // 2)
+    w("\x1b[?25l"); drawn = 0
+    for k in range(pulses * 8 + 1):
+        t = 0.5 + 0.5 * __import__("math").cos(k / 8 * 2 * 3.14159)
+        lit = (mix(colors[0], (255, 255, 255), 0.35 * (1 - t)), mix(colors[1], (255, 255, 255), 0.35 * (1 - t)))
+        frame, _ = big(text, lit)
+        if drawn: w(f"\x1b[{drawn}A")
+        for r in frame: w("\x1b[2K" + " " * pad + r + "\n")
+        drawn = len(frame); time.sleep(0.05)
+    w("\x1b[?25h")
+
+
+def celebrate(text, colors):
+    """The big word wipes in while confetti rains around it."""
+    import random
+    rows, n = big(text, colors)
+    width = max(n + 8, min(cols() - 4, 76)); height = 11; top = 3; left = (width - n) // 2
+    bits = [("✦", ORANGE), ("•", PINK), ("▪", VIOLET), ("◆", AMBER), ("✧", GREEN), ("●", (62, 99, 221)), ("▴", (18, 165, 148))]
+    flakes = []
+    w("\x1b[?25l"); drawn = 0
+    for f in range(46):
+        if f < 30:
+            for _ in range(4): flakes.append([random.uniform(0, width - 1), random.uniform(-3, 0), random.uniform(0.25, 0.7), random.choice(bits)])
+        for fl in flakes: fl[1] += fl[2]; fl[0] += random.uniform(-0.4, 0.4)
+        flakes = [fl for fl in flakes if fl[1] < height]
+        word, _ = big(text, colors, shown=min(n, f * 3))
+        grid = [[" "] * width for _ in range(height)]
+        for x, y, _, (ch, col) in flakes:
+            xi, yi = int(x), int(y)
+            if 0 <= yi < height and 0 <= xi < width and not (top <= yi < top + 5 and left <= xi < left + n):
+                grid[yi][xi] = fg(col) + ch + R
+        lines = []
+        for y in range(height):
+            if top <= y < top + 5:
+                lines.append("".join(grid[y][:left]) + word[y - top] + "".join(grid[y][left + n:]))
+            else:
+                lines.append("".join(grid[y]))
+        if drawn: w(f"\x1b[{drawn}A")
+        for l in lines: w("\x1b[2K  " + l + "\n")
+        drawn = len(lines); time.sleep(0.05)
+    w("\x1b[?25h")
+
+
 def explain_fda(appname):
+    w("\n"); banner("YOUR TURN", (AMBER, ORANGE)); chime()
     w(f"\n  {B}{gradient('One step only you can do')}{R}\n\n")
     w(f"  Agents will ask this app to read files macOS protects (Mail, Messages, other apps' data).\n")
     w(f"  macOS lets only {B}you{R} allow that, in System Settings, and no app can ask for it with a prompt.\n")
@@ -266,9 +343,9 @@ def wait_for_grant(sock):
     finally:
         w("\x1b[?25h")
     w("\r\x1b[2K\n")
-    done = f"{fg(GREEN)}{B}✓ Full Disk Access is on.{R}"
-    lock_film(lambda i, k: done if i == 8 else (f"{fg(GREY)}Privileged sessions are ready.{R}" if i == 9 else ""))
     chime()
+    celebrate("ALL SET!", (GREEN, (18, 165, 148)))
+    w(f"\n  {fg(GREEN)}{B}✓ Full Disk Access is on.{R} {fg(GREY)}Privileged sessions are ready.{R}\n")
 
 
 def full_disk_access(appname, sock):
