@@ -58,7 +58,7 @@ function scene(p, lift, swing) {
 
 // ── renderer ─────────────────────────────────────────────────────────────────
 const LIGHT = norm([-0.55, 0.75, 0.6]), FILL = norm([0.7, -0.1, 0.5]), VIEW = [0, 0, 1]
-function shade(px, py, yaw, tilt, lift, swing) {
+function shade(px, py, yaw, tilt, lift, swing, cel = false) {
   // orthographic camera looking down -z; the object is turned by yaw and tilt
   let ro = [px, py, 3], rd = [0, 0, -1]
   const toObj = v => rotX(rotY(v, -yaw), -tilt)
@@ -79,6 +79,13 @@ function shade(px, py, yaw, tilt, lift, swing) {
       if (mat === 'hole') return [0.07, 0.05, 0.09]
       const base = mat === 'steel' ? [0.72, 0.75, 0.82] : aurora((p[0] + 0.75) / 1.5)
       const amb = 0.28
+      if (cel) {
+        // Flat tones and a hard highlight: edges stay crisp at terminal resolution.
+        const light = amb + diff * 0.85 + fill
+        const band = light > 0.95 ? 1.12 : light > 0.62 ? 0.9 : light > 0.38 ? 0.66 : 0.46
+        if (spec > (mat === 'steel' ? 0.55 : 0.7)) return base.map(c => Math.min(1, c * 0.35 + 0.72))
+        return base.map(c => Math.min(1, c * band))
+      }
       return base.map(c => Math.min(1, c * (amb + diff * 0.85 + fill) + spec * (mat === 'steel' ? 0.9 : 0.45) + rim * c))
     }
     t += dist
@@ -88,7 +95,7 @@ function shade(px, py, yaw, tilt, lift, swing) {
 }
 
 // One frame: w x h pixels, 3x3 samples per pixel; a pixel is drawn when most samples hit.
-function frame(w, h, { yaw, tilt, lift, swing }) {
+function frame(w, h, { yaw, tilt, lift, swing }, cel = false) {
   const rows = [], scale = 2.25 / h, ss = 3   // room above for the raised shackle
   for (let y = 0; y < h; y++) {
     const row = []
@@ -96,10 +103,15 @@ function frame(w, h, { yaw, tilt, lift, swing }) {
       let acc = [0, 0, 0], hits = 0
       for (let sy = 0; sy < ss; sy++) for (let sx = 0; sx < ss; sx++) {
         const px = (x + (sx + 0.5) / ss - w / 2) * scale, py = (h / 2 - (y + (sy + 0.5) / ss)) * scale + 0.02
-        const c = shade(px, py, yaw, tilt, lift, swing)
+        const c = shade(px, py, yaw, tilt, lift, swing, cel)
         if (c) { acc = acc.map((v, i) => v + c[i]); hits++ }
       }
-      row.push(hits >= ss * ss * 0.5 ? '#' + acc.map(v => Math.round((v / hits) * 255).toString(16).padStart(2, '0')).join('') : '')
+      let col = hits ? acc.map(v => v / hits) : null
+      if (cel && hits) {  // the centre sample's own colour, no blend across an edge
+        const px = (x + 0.5 - w / 2) * scale, py = (h / 2 - (y + 0.5)) * scale + 0.02
+        col = shade(px, py, yaw, tilt, lift, swing, true) ?? col
+      }
+      row.push(hits >= ss * ss * 0.5 ? '#' + col.map(v => Math.round(v * 255).toString(16).padStart(2, '0')).join('') : '')
     }
     rows.push(row)
   }
@@ -115,13 +127,37 @@ for (let i = 1; i <= 6; i++) poses.push({ yaw: YAW, tilt: TILT, lift: ease(i / 6
 for (let i = 1; i <= 10; i++) poses.push({ yaw: YAW, tilt: TILT, lift: 1, swing: ease(i / 10) * 1.75 })
 
 const SIZES = { hero: [16, 13], pane: [12, 10] }
+const rgbOf = c => `${parseInt(c.slice(1, 3), 16)};${parseInt(c.slice(3, 5), 16)};${parseInt(c.slice(5, 7), 16)}`
+// Cells: one pixel = two columns of background (bold, seamless).
+const asCells = rows => rows.map(r => r.map(c => c ? `\x1b[48;2;${rgbOf(c)}m  \x1b[0m` : '  ').join(''))
+// Half blocks: two pixels per cell stacked, lower half in the glyph colour, upper half in the background.
+const asHalves = rows => {
+  const out = []
+  for (let y = 0; y < rows.length; y += 2) {
+    const top = rows[y], bot = rows[y + 1] ?? top.map(() => '')
+    out.push(top.map((t, x) => {
+      const b = bot[x]
+      if (t && b) return `\x1b[48;2;${rgbOf(t)}m\x1b[38;2;${rgbOf(b)}m▄\x1b[0m`
+      if (b) return `\x1b[38;2;${rgbOf(b)}m▄\x1b[0m`
+      if (t) return `\x1b[38;2;${rgbOf(t)}m▀\x1b[0m`
+      return ' '
+    }).join(''))
+  }
+  return out
+}
 if (process.argv.includes('--preview')) {
+  // Side by side: soft cells (now), cel-shaded cells, cel-shaded half blocks at double resolution.
   const [w, h] = SIZES[process.argv[3] || 'hero']
-  const show = rows => rows.map(r => '  ' + r.map(c => c ? `\x1b[48;2;${parseInt(c.slice(1, 3), 16)};${parseInt(c.slice(3, 5), 16)};${parseInt(c.slice(5, 7), 16)}m  \x1b[0m` : '  ').join('')).join('\n')
-  const frames = poses.map(p => frame(w, h, p))
+  const A = poses.map(p => asCells(frame(w, h, p)))
+  const Bc = poses.map(p => asCells(frame(w, h, p, true)))
+  const C = poses.map(p => asHalves(frame(w * 2, h * 2, p, true)))
+  const pad = (line, cols) => line + ' '.repeat(Math.max(0, cols - line.replace(/\x1b\[[0-9;]*m/g, '').length))
+  console.log(`  ${pad('soft (now)', w * 2 + 4)}${pad('sharp: cel shading', w * 2 + 4)}sharp: cel + half blocks (2x)`)
   process.stdout.write('\x1b[?25l')
-  for (let loop = 0; loop < 2; loop++) for (const f of [...frames, ...Array(8).fill(frames.at(-1))]) {
-    process.stdout.write(show(f) + `\n\x1b[${h}A`); await new Promise(r => setTimeout(r, 90))
+  for (let loop = 0; loop < 2; loop++) for (let i = 0; i < poses.length + 8; i++) {
+    const k = Math.min(i, poses.length - 1)
+    for (let r = 0; r < h; r++) console.log('  ' + pad(A[k][r], w * 2 + 4) + pad(Bc[k][r], w * 2 + 4) + (C[k][r] ?? ''))
+    process.stdout.write(`\x1b[${h}A`); await new Promise(res => setTimeout(res, 90))
   }
   process.stdout.write(`\x1b[${h}B\x1b[?25h\n`)
 } else {
