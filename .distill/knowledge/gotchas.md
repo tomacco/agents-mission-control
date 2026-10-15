@@ -20,6 +20,8 @@ staleness_threshold: 90
   confidence: validated
 - Installed mid-session, a plugin misses `session.start`; this one also sets up on the first prompt. evidence: mod/hooks/register.tsx#setUp
   confidence: validated
+- `$.process.run` allows `timeoutMs` up to ten minutes; past it the call rejects, the hook throws, and Claude Code skips it (the model reads "no tool.call hook answered"). Keep the app's run plus margin under it (MAX_RUN_S), and keep the `.catch` on the tool hook. evidence: mod/hooks/register.tsx, 2026-10-15 test
+  confidence: validated
 - Plugin hooks module: a helper that receives `$` must be a top-level function, or `claude plugin validate` refuses the module; tool matchers accept only this build's tool names (use a RegExp for several). evidence: mod/hooks/register.tsx
   confidence: validated
 - A command in a Bash call whose text contains `pkill` or `quit app` (even inside a heredoc) trips the session's app-quit guard. Write such scripts with the file editor. evidence: 2026-10-15 split
