@@ -11,6 +11,7 @@ declare module 'claude-code' {
       runs: RunView[]
       tick: number
       spin: number
+      asking: { reason: string; paths: string[] } | null
     }
   }
 }

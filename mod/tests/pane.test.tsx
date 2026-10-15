@@ -1,6 +1,6 @@
 import { expect, test } from 'claude-code/testing'
 
-import { ago, newestFirst } from '../hooks/format'
+import { GENERIC, ago, newestFirst, sessionName } from '../hooks/format'
 import type { RunView } from '../types'
 
 // Every string drawn, in order, so the test reads the pane as the person does.
@@ -53,4 +53,11 @@ test('a hint when a command failed on it', async ($, on) => {
   on('tool.call', { tool: 'Bash' }, () => ({ result: { stdout: '', stderr: 'ls: ~/Library/Mail: Operation not permitted' } }) as never)
   const ran = await $.tool.call({ tool: 'Bash', command: 'ls ~/Library/Mail' } as never)
   expect(JSON.stringify(ran)).toMatch(HINT)
+})
+
+test('a session without a usable name gets a stable one', () => {
+  expect(sessionName('abc-123')).toBe(sessionName('abc-123'))
+  expect(sessionName('abc-123')).toMatch(/^[A-Z][a-z]+ [A-Z][a-z]+$/)
+  for (const generic of ['claude', 'Claude Code', 'claude-code', 'agent', 'Assistant', '']) expect(GENERIC.test(generic)).toBe(true)
+  expect(GENERIC.test('Quartermaster Overclocked Walrus')).toBe(false)
 })
