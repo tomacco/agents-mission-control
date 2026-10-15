@@ -151,7 +151,9 @@ def set_hooks_path() -> str:
 
 
 def default_agent() -> str:
-    return os.environ.get("BACKLOG_AGENT") or f"{getpass.getuser()}@{ROOT.name}"
+    # The git author, never the OS login: this lands in committed files, and a login name can be private.
+    name = subprocess.run(["git", "config", "user.name"], cwd=ROOT, capture_output=True, text=True).stdout.strip()
+    return os.environ.get("BACKLOG_AGENT") or f"{name or 'agent'}@{ROOT.name}"
 
 
 def slug(title: str) -> str:

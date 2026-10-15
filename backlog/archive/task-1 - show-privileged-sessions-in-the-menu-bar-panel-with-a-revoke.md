@@ -20,7 +20,7 @@ The app keeps leases in MissionControl.leases; no tile draws them. Privileged.re
 
 ## Handoff
 
-- 2026-10-15 10:43Z · ivan.leonardo.gonzalez@agents-mission-control · main: Cancelled: the app has no menu bar item since 0.2.0 Next: Revoking could live in the plugin pane
+- 2026-10-15 10:43Z · Iván González@agents-mission-control · main: Cancelled: the app has no menu bar item since 0.2.0 Next: Revoking could live in the plugin pane
 
 ## Evidence
 

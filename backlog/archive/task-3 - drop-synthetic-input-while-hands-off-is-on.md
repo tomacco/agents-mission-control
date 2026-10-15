@@ -19,7 +19,7 @@ A CGEventTap in the app (needs Accessibility). See docs/ROADMAP.md Phase 1.5.
 
 ## Handoff
 
-- 2026-10-15 10:43Z · ivan.leonardo.gonzalez@agents-mission-control · main: Moved to Agent Board with the hands-off feature Next: Track it in tomacco/agent-board
+- 2026-10-15 10:43Z · Iván González@agents-mission-control · main: Moved to Agent Board with the hands-off feature Next: Track it in tomacco/agent-board
 
 ## Evidence
 
