@@ -26,9 +26,9 @@ staleness_threshold: 90
   origin: directive
 
 ## Data flow: privileged sessions
-- Plugin → `bin/amc-call` → `~/.amc/amc.sock` → app. Ops: register, open, run, end, status (one JSON line each way).
-- Trust: caller must descend from Anthropic-signed Claude Code (dynamic code-signature check on the live pid); key bound to the claude pid; leases `once` or `session`.
-- Commands run as the app's children (`/bin/zsh -c`), so they inherit the app's Full Disk Access; output to `~/.amc/runs/<id>.log`; every request hash-chained into `~/.amc/trace.jsonl`.
+- Plugin (embedded socket client) or `bin/amc-call` → `~/.amc/amc.sock` → app. Ops: open, run, end, status, grant (one JSON line each way).
+- Trust: caller must descend from Anthropic-signed Claude Code (dynamic code-signature check on the live pid); a lease belongs to that claude pid and opens only after Touch ID or the login password (LocalAuthentication); leases `once` or `session`.
+- Commands run as the app's children (`/bin/zsh -o pipefail -c`), so they inherit the app's Full Disk Access; output to `~/.amc/runs/<id>.log`; every request hash-chained into `~/.amc/trace.jsonl`.
   evidence: Privileged.swift, mod/hooks/register.tsx, tests/test-privileged.sh
   confidence: validated
 

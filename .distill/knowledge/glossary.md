@@ -13,7 +13,7 @@ staleness_threshold: 180
 - **amcd**: the enforcer LaunchAgent that kills blocked processes while hands off is on. evidence: bin/amcd
 - **Privileged session**: a Claude Code session whose approved commands run inside the app with its Full Disk Access. evidence: README.md
 - **Lease**: an approval for a session, scope `once` or `session`. evidence: Privileged.swift#Lease
-- **Key**: the secret the app gives the first caller in a claude process; every later op must carry it. evidence: Privileged.swift#register
+- **Approval**: Touch ID or the login password, asked by the app before a lease opens. evidence: Privileged.swift#personApproves
 - **Trace**: `~/.amc/trace.jsonl`, the hash-chained log of every request. evidence: Privileged.swift#trace
 - **Mod**: Claude Code's name for a plugin built from a hooks module; here `mod/`, plugin name `amc`. evidence: mod/.claude-plugin/plugin.json
   confidence: validated

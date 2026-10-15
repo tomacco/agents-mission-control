@@ -4,12 +4,11 @@ import type { EngineInterface, Register } from 'claude-code'
 import type { Identity, LeaseView, RunView } from '../types'
 
 // Full Disk Access for agents without giving it to Terminal. Agents Mission Control (the menu bar app) holds
-// the grant and runs approved commands as its own children; this mod asks the person, shows what is
-// happening beside the transcript, and talks to the app over ~/.amc/amc.sock through bin/amc-call.
-// Approvals live in $.state only, so they never outlive the session.
+// the grant, asks the person with Touch ID before it opens access for a session, and runs the commands as
+// its own children. This mod gives the model the tool, shows what is happening beside the transcript, and
+// talks to the app over its socket. An agent reaching the socket on its own still meets Touch ID.
 
 const S = { plugin: 'amc' } as const
-const key = atom({ ...S, key: 'key' } as const, '')
 const color = atom({ ...S, key: 'color' } as const, '')
 const identity = atom({ ...S, key: 'identity' } as const, null as Identity | null)
 const lease = atom({ ...S, key: 'lease' } as const, null as LeaseView | null)
@@ -20,7 +19,7 @@ const PANE = 'amc'
 const COLORS = ['#D97757', '#E5484D', '#30A46C', '#3E63DD', '#8E4EC6', '#F76B15', '#12A594', '#D6409F', '#FFC53D']
 const DENIED = /Operation not permitted|permission to view it|EPERM/
 
-type Reply = { error?: string; key?: string; fda?: boolean; exit?: number; log?: string; bytes?: number; sha256?: string; timed_out?: boolean }
+type Reply = { error?: string; fda?: boolean; exit?: number; log?: string; bytes?: number; sha256?: string; timed_out?: boolean }
 
 // The socket client lives here, so the plugin works when installed alone from the marketplace.
 const CLIENT = [
@@ -43,22 +42,50 @@ async function call($: EngineInterface, req: Record<string, unknown>, timeoutMs 
   try { return JSON.parse(stdout) } catch { return { error: `no reply from Agents Mission Control: ${stdout.slice(0, 200)}` } }
 }
 
-// The app forgets keys and leases when it restarts (macOS relaunches it when Full Disk Access is switched on):
-// take a fresh key, and reopen a session-wide approval the person already gave.
+const APPROVAL_MS = 150000  // the app waits up to 2 minutes for Touch ID
+
+// The app forgets leases when it restarts (macOS relaunches it when Full Disk Access is switched on):
+// ask for the session's access again, which shows Touch ID again, then retry.
 async function send($: EngineInterface, req: Record<string, unknown>, timeoutMs?: number): Promise<Reply> {
-  let r = await call($, { ...req, key: await read($, key) }, timeoutMs)
-  if (r.error?.includes('bad or missing session key') || r.error?.includes('no reply')) {
-    const reg = await call($, { op: 'register' })
-    if (!reg.key) return r
-    await update($, key, () => reg.key!)
-    r = await call($, { ...req, key: reg.key }, timeoutMs)
-  }
+  let r = await call($, req, timeoutMs)
   const l = await read($, lease), who = await read($, identity)
   if (req.op === 'run' && r.error?.includes('no open lease') && l?.scope === 'session' && who) {
-    await call($, { op: 'open', key: await read($, key), ...who, reason: l.reason, paths: l.paths, scope: 'session' })
-    r = await call($, { ...req, key: await read($, key) }, timeoutMs)
+    const again = await call($, { op: 'open', ...who, reason: l.reason, paths: l.paths, scope: 'session' }, APPROVAL_MS)
+    if (again.error) { await update($, lease, () => null); return again }
+    r = await call($, req, timeoutMs)
   }
   return r
+}
+
+// Installed in the middle of a session, the plugin misses session.start; the first prompt sets it up instead.
+async function setUp($: EngineInterface) {
+  if (!(await read($, color))) await update($, color, () => COLORS[Math.floor(Math.random() * COLORS.length)])
+  const st = await call($, { op: 'status' })
+  if (st.error) $.ui.status('⚠ Agents Mission Control is not running: privileged sessions are off')
+  else if (st.fda === false) $.ui.status('⚠ Agents Mission Control has no Full Disk Access yet (asked on first use)')
+  await $.tool.register({
+    name: TOOL,
+    isDeferred: false,
+    description:
+      'Run a shell command with Full Disk Access, for paths macOS protects from Terminal (Mail, Messages, ' +
+      'Safari, other apps\' containers, ~/Library/Group Containers, TCC data). The person approves the first ' +
+      'request of the session with Touch ID; every command is logged with its reason. Use it only after a normal ' +
+      'Bash or Read call failed with "Operation not permitted", never as a general shell. Read-only commands ' +
+      'unless the person asked for a change. Never call the app\'s socket yourself.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        command: { type: 'string', description: 'The zsh command to run (pipefail is on).' },
+        reason: { type: 'string', description: 'Why this access is needed, one sentence the person will read.' },
+        paths: { type: 'array', items: { type: 'string' }, description: 'The protected paths it touches.' },
+        agent: { type: 'string', description: 'Your agent name (first call pins it for the session).' },
+        subtitle: { type: 'string', description: 'Short context of this session, up to 8 words (pinned on first call).' },
+        cwd: { type: 'string' },
+        timeout_seconds: { type: 'number', description: 'Default 120, at most 600.' },
+      },
+      required: ['command', 'reason', 'paths', 'agent', 'subtitle'],
+    },
+  })
 }
 
 // macOS has no prompt for Full Disk Access: the app opens the settings pane and shows itself in Finder,
@@ -72,42 +99,15 @@ async function waitForAccess($: EngineInterface): Promise<boolean> {
 }
 
 export const register: Register = on => {
+  let isSetUp = false
   on('session.start', async ($, e, next) => {
     const started = await next(e)
-    if (!(await read($, color))) await update($, color, () => COLORS[Math.floor(Math.random() * COLORS.length)])
-    // The key is bound to this Claude Code process by the first caller, so take it before the model can.
-    if (!(await read($, key))) {
-      const r = await call($, { op: 'register' })
-      if (r.key) await update($, key, () => r.key!)
-      else $.ui.log(`amc: ${r.error}`, { to: 'debug' })
-    }
-    const st = await call($, { op: 'status' })
-    if (st.error) $.ui.status('⚠ Agents Mission Control is not running: privileged sessions are off')
-    else if (st.fda === false) $.ui.status('⚠ Agents Mission Control has no Full Disk Access yet (asked on first use)')
-    await $.tool.register({
-      name: TOOL,
-      isDeferred: false,
-      description:
-        'Run a shell command with Full Disk Access, for paths macOS protects from Terminal (Mail, Messages, ' +
-        'Safari, other apps\' containers, ~/Library/Group Containers, TCC data). The person approves the first ' +
-        'request of the session; every command is logged with its reason. Use it only after a normal Bash or ' +
-        'Read call failed with "Operation not permitted", never as a general shell. Read-only commands unless ' +
-        'the person asked for a change.',
-      inputSchema: {
-        type: 'object',
-        properties: {
-          command: { type: 'string', description: 'The zsh command to run.' },
-          reason: { type: 'string', description: 'Why this access is needed, one sentence the person will read.' },
-          paths: { type: 'array', items: { type: 'string' }, description: 'The protected paths it touches.' },
-          agent: { type: 'string', description: 'Your agent name (first call pins it for the session).' },
-          subtitle: { type: 'string', description: 'Short context of this session, up to 8 words (pinned on first call).' },
-          cwd: { type: 'string' },
-          timeout_seconds: { type: 'number', description: 'Default 120, at most 600.' },
-        },
-        required: ['command', 'reason', 'paths', 'agent', 'subtitle'],
-      },
-    })
+    await setUp($); isSetUp = true
     return started
+  })
+  on('prompt.submit', async ($, e, next) => {
+    if (!isSetUp) { isSetUp = true; await setUp($) }
+    return next(e)
   })
 
   on('tool.call', { tool: `mcp__amc__${TOOL}` }, async ($, e: any) => {
@@ -137,26 +137,17 @@ export const register: Register = on => {
       if (!(await waitForAccess($))) {
         return { deny: 'Full Disk Access was not switched on within 5 minutes. Ask the person to finish it in System Settings, then retry.' }
       }
-      const opened = await send($, { op: 'open', ...who, reason: e.reason, paths, scope: 'session' })
-      if (opened.error) return { deny: `amc: ${opened.error}` }
-      await update($, lease, () => ({ scope: 'session', reason: String(e.reason), paths, since: new Date().toISOString() }))
     }
 
+    // The app asks the person with Touch ID (or their password); that is the only approval.
     if (!(await read($, lease))) {
-      let answer = 'Deny'
-      try {
-        answer = await $.ui.ask(
-          `${who.agent} (${who.subtitle}) asks for Full Disk Access. Reason: ${e.reason} Paths: ${paths.join(', ') || 'not stated'}. Allow?`,
-          { header: 'Disk access', options: ['Allow for this session', 'Allow once', 'Deny'] },
-        )
-      } catch { /* dismissed or headless: deny */ }
-      if (answer !== 'Allow for this session' && answer !== 'Allow once') {
-        return { deny: 'The person denied Full Disk Access. Do not retry; continue without it or ask them why.' }
+      $.ui.status(`🔒 ${who.agent} asks for Full Disk Access: confirm with Touch ID`)
+      const opened = await call($, { op: 'open', ...who, reason: e.reason, paths, scope: 'session' }, APPROVAL_MS)
+      if (opened.error) {
+        $.ui.status(undefined)
+        return { deny: `Full Disk Access not granted: ${opened.error}. Do not retry unless the person asks; continue without it.` }
       }
-      const scope = answer === 'Allow once' ? 'once' : 'session'
-      const opened = await send($, { op: 'open', ...who, reason: e.reason, paths, scope })
-      if (opened.error) return { deny: `amc: ${opened.error}` }
-      await update($, lease, () => ({ scope, reason: String(e.reason), paths, since: new Date().toISOString() }))
+      await update($, lease, () => ({ scope: 'session', reason: String(e.reason), paths, since: new Date().toISOString() }))
     }
 
     const opened = await $.ui.open({ id: PANE, title: 'Privileged', columns: 36 })
@@ -200,8 +191,7 @@ export const register: Register = on => {
   })
 
   on('session.end', async ($, e, next) => {
-    const k = await read($, key)
-    if (k && (await read($, lease))) await call($, { op: 'end', key: k })
+    if (await read($, lease)) await call($, { op: 'end' })
     return next(e)
   })
 

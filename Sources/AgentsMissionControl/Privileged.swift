@@ -2,19 +2,22 @@ import Foundation
 import Security
 import CryptoKit
 import Darwin
+import LocalAuthentication
+import AppKit
 
 // Privileged sessions: this app holds the Full Disk Access grant, and commands an agent needs it for run
 // here, as this app's children, so they inherit the grant. Terminal never gets it.
 //
 // One JSON request per connection on ~/.amc/amc.sock, one JSON line back:
-//   register                 -> { key }   first caller per Claude Code process (the mod, at session start)
-//   open  key agent subtitle reason paths scope(session|once)   after the person approved it in the mod
-//   run   key run_id command reason cwd paths timeout          output goes to ~/.amc/runs/<run_id>.log
-//   end   key                closes the lease
+//   open  agent subtitle reason paths scope(session|once)   asks the person with Touch ID (or their password)
+//   run   run_id command reason cwd paths timeout             output goes to ~/.amc/runs/<run_id>.log
+//   end                      closes the lease
 //   status                   active leases (no keys) and whether this app has Full Disk Access
 //   grant                    opens the Full Disk Access settings and shows this app in Finder, ready to drag in
 // Every caller must descend from a Claude Code binary signed by Anthropic, checked live by its code
-// signature, and every request lands in ~/.amc/trace.jsonl, each line chained to the hash of the previous.
+// signature; a lease belongs to that Claude Code process. Only the person opens one: an agent can reach
+// this socket and post synthetic clicks, but it cannot pass Touch ID. Every request lands in
+// ~/.amc/trace.jsonl, each line chained to the hash of the previous.
 
 struct Lease: Codable {
     var agent: String, subtitle: String, reason: String, paths: [String], scope: String
@@ -32,7 +35,6 @@ final class Privileged {
     static let claudeRequirement = #"identifier "com.anthropic.claude-code" and anchor apple generic and certificate leaf[subject.OU] = "Q6L2SF6YDW""#
 
     private let lock = NSLock()
-    private var keys: [Int32: String] = [:]   // Claude Code pid -> key
     private(set) var leases: [Int32: Lease] = [:]
     private var lastHash = ""
     var onChange: (() -> Void)?
@@ -110,24 +112,14 @@ final class Privileged {
             return ["error": "caller is not a Claude Code session signed by Anthropic"]
         }
         entry["claude_pid"] = claude
-        if op == "register" {
-            lock.lock(); defer { lock.unlock() }
-            if keys[claude] != nil { return ["error": "this session is already registered"] }
-            let key = (0..<32).map { _ in String(format: "%02x", UInt8.random(in: 0...255)) }.joined()
-            keys[claude] = key
-            return ["key": key]
-        }
-        lock.lock()
-        let valid = keys[claude] != nil && keys[claude] == r["key"] as? String
-        lock.unlock()
-        guard valid else { return ["error": "bad or missing session key"] }
-
         switch op {
         case "open":
             let lease = Lease(agent: r["agent"] as? String ?? "?", subtitle: r["subtitle"] as? String ?? "",
                               reason: r["reason"] as? String ?? "", paths: r["paths"] as? [String] ?? [],
                               scope: r["scope"] as? String == "once" ? "once" : "session",
                               since: Date(), runs: 0, claudePid: claude)
+            if let refused = personApproves(lease) { entry["approval"] = "refused"; return ["error": refused] }
+            entry["approval"] = "touch id or password"
             lock.lock(); leases[claude] = lease; lock.unlock()
             changed()
             return ["ok": true]
@@ -136,11 +128,12 @@ final class Privileged {
             changed()
             return ["ok": had]
         case "run":
-            guard Self.hasFullDiskAccess else {
-                return ["error": "Agents Mission Control has no Full Disk Access yet: grant it in System Settings (op grant opens it)"]
-            }
             lock.lock()
             guard var lease = leases[claude] else { lock.unlock(); return ["error": "no open lease: ask the person first"] }
+            guard Self.hasFullDiskAccess else {
+                lock.unlock()
+                return ["error": "Agents Mission Control has no Full Disk Access yet: grant it in System Settings (op grant opens it)"]
+            }
             lease.runs += 1
             if lease.scope == "once" { leases.removeValue(forKey: claude) } else { leases[claude] = lease }
             lock.unlock()
@@ -161,7 +154,7 @@ final class Privileged {
         guard let out = try? FileHandle(forWritingTo: log) else { return ["error": "cannot write \(log.path)"] }
         let p = Process()
         p.executableURL = URL(fileURLWithPath: "/bin/zsh")
-        p.arguments = ["-c", command]
+        p.arguments = ["-o", "pipefail", "-c", command]  // a failure anywhere in a pipe shows in the exit code
         p.currentDirectoryURL = URL(fileURLWithPath: (r["cwd"] as? String) ?? NSHomeDirectory())
         p.standardOutput = out; p.standardError = out; p.standardInput = FileHandle.nullDevice
         let started = Date()
@@ -179,6 +172,28 @@ final class Privileged {
         return reply
     }
 
+    // The person's proof: Touch ID, or their login password where Touch ID is unavailable. Blocks this
+    // request's thread until they answer; nil means approved, otherwise why not.
+    private func personApproves(_ l: Lease) -> String? {
+        let ctx = LAContext()
+        var err: NSError?
+        guard ctx.canEvaluatePolicy(.deviceOwnerAuthentication, error: &err) else {
+            return "this Mac cannot ask for Touch ID or a password: \(err?.localizedDescription ?? "unknown")"
+        }
+        let scope = l.scope == "once" ? "one command" : "this session"
+        let paths = l.paths.isEmpty ? "" : " (\(l.paths.prefix(3).joined(separator: ", ")))"
+        let reason = "allow \(l.agent), \(l.subtitle), Full Disk Access for \(scope): \(l.reason)\(paths)"
+        var answer: String? = "the person did not answer"
+        let done = DispatchSemaphore(value: 0)
+        DispatchQueue.main.async { NSApp.activate() }
+        ctx.evaluatePolicy(.deviceOwnerAuthentication, localizedReason: reason) { ok, e in
+            answer = ok ? nil : "the person declined (\(e?.localizedDescription ?? "cancelled"))"
+            done.signal()
+        }
+        if done.wait(timeout: .now() + 120) == .timedOut { ctx.invalidate() }
+        return answer
+    }
+
     func revoke(_ pid: Int32) {
         lock.lock(); leases.removeValue(forKey: pid); lock.unlock()
         trace(["op": "revoke", "claude_pid": pid, "ok": true, "by": "panel"])
@@ -188,8 +203,8 @@ final class Privileged {
     // Leases and keys die with their Claude Code process.
     private func reap() {
         lock.lock()
-        let dead = Set(keys.keys).union(leases.keys).filter { kill($0, 0) != 0 && errno == ESRCH }
-        for pid in dead { keys.removeValue(forKey: pid); leases.removeValue(forKey: pid) }
+        let dead = leases.keys.filter { kill($0, 0) != 0 && errno == ESRCH }
+        for pid in dead { leases.removeValue(forKey: pid) }
         lock.unlock()
         for pid in dead { trace(["op": "reap", "claude_pid": pid, "ok": true]) }
         if !dead.isEmpty { changed() }
