@@ -44,6 +44,7 @@ final class MissionControl {
     var enforcerRunning = true
     var caffeine: Caffeine?
     var servers: [Server] = []
+    var leases: [[String: Any]] = []
     private var timer: Timer?
     private var serverTimer: Timer?
 
@@ -52,6 +53,10 @@ final class MissionControl {
         timer = Timer.scheduledTimer(withTimeInterval: 2, repeats: true) { [weak self] _ in self?.refreshFast() }
         refreshServers()
         serverTimer = Timer.scheduledTimer(withTimeInterval: 10, repeats: true) { [weak self] _ in self?.refreshServers() }
+        if !CommandLine.arguments.contains("--preview") {
+            Privileged.shared.onChange = { [weak self] in self?.leases = Privileged.shared.statusRows() }
+            Privileged.shared.start()
+        }
     }
 
     // Cheap state, polled for the menu bar icon.

@@ -1,0 +1,17 @@
+#!/usr/bin/python3 -I
+# amc-call: send one JSON request (stdin) to Agents Mission Control's privileged socket and print the reply line.
+#   echo '{"op":"status"}' | bin/amc-call
+import os, socket, sys
+path = os.environ.get("AMC_SOCKET", os.path.expanduser("~/.amc/amc.sock"))
+s = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
+try:
+    s.connect(path)
+except OSError as e:
+    print('{"error": "Agents Mission Control is not running (%s)"}' % e.strerror); sys.exit(0)
+s.sendall(sys.stdin.read().strip().encode() + b"\n")
+buf = b""
+while not buf.endswith(b"\n"):
+    chunk = s.recv(65536)
+    if not chunk: break
+    buf += chunk
+sys.stdout.write(buf.decode())

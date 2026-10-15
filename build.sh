@@ -1,5 +1,6 @@
 #!/bin/zsh
-# Build AgentsMissionControl.app (menu bar only, ad-hoc signed) from the SwiftPM target.
+# Build AgentsMissionControl.app (menu bar only) from the SwiftPM target. Signed with the Developer ID when the
+# keychain has it, so the Full Disk Access grant survives rebuilds; ad-hoc otherwise (the grant then breaks every build).
 set -e
 cd "${0:A:h}"
 swift build -c release
@@ -20,5 +21,6 @@ cat > $APP/Contents/Info.plist <<PLIST
 <key>AMCRoot</key><string>$PWD</string>
 </dict></plist>
 PLIST
-codesign --force --sign - $APP
+ID=$(security find-identity -v -p codesigning | sed -n 's/.*"\(Developer ID Application:[^"]*\)".*/\1/p' | head -1)
+codesign --force --sign "${ID:--}" $APP
 echo $APP
