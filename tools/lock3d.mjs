@@ -4,7 +4,8 @@
 // which the installer and the Claude Code plugin play back.
 //   node tools/lock3d.mjs            write the frames
 //   node tools/lock3d.mjs --preview  play them here
-import { readFileSync, writeFileSync } from 'node:fs'
+import { mkdirSync, readFileSync, writeFileSync } from 'node:fs'
+import { deflateSync } from 'node:zlib'
 import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
@@ -118,6 +119,30 @@ function frame(w, h, { yaw, tilt, lift, swing }, cel = false) {
   return rows
 }
 
+// A high-resolution frame as an RGBA PNG (2x2 samples per pixel), for symbol converters such as chafa that
+// pick each cell's character by shape, the way sharp terminal art is made.
+function png(w, h, pose) {
+  const scale = 2.25 / h, raw = Buffer.alloc((w * 4 + 1) * h)
+  for (let y = 0; y < h; y++) {
+    raw[y * (w * 4 + 1)] = 0
+    for (let x = 0; x < w; x++) {
+      let acc = [0, 0, 0], hits = 0
+      for (let sy = 0; sy < 2; sy++) for (let sx = 0; sx < 2; sx++) {
+        const c = shade((x + (sx + 0.5) / 2 - w / 2) * scale, (h / 2 - (y + (sy + 0.5) / 2)) * scale + 0.02, pose.yaw, pose.tilt, pose.lift, pose.swing)
+        if (c) { acc = acc.map((v, i) => v + c[i]); hits++ }
+      }
+      const o = y * (w * 4 + 1) + 1 + x * 4
+      if (hits) { raw[o] = Math.round(acc[0] / hits * 255); raw[o + 1] = Math.round(acc[1] / hits * 255); raw[o + 2] = Math.round(acc[2] / hits * 255) }
+      raw[o + 3] = Math.round(hits / 4 * 255)
+    }
+  }
+  const crcTable = Array.from({ length: 256 }, (_, n) => { let c = n; for (let k = 0; k < 8; k++) c = c & 1 ? 0xedb88320 ^ (c >>> 1) : c >>> 1; return c >>> 0 })
+  const crc = b => { let c = 0xffffffff; for (const x of b) c = crcTable[(c ^ x) & 255] ^ (c >>> 8); return (c ^ 0xffffffff) >>> 0 }
+  const chunk = (type, data) => { const t = Buffer.from(type), l = Buffer.alloc(4), cr = Buffer.alloc(4); l.writeUInt32BE(data.length); cr.writeUInt32BE(crc(Buffer.concat([t, data]))); return Buffer.concat([l, t, data, cr]) }
+  const ihdr = Buffer.alloc(13); ihdr.writeUInt32BE(w, 0); ihdr.writeUInt32BE(h, 4); ihdr[8] = 8; ihdr[9] = 6
+  return Buffer.concat([Buffer.from([137, 80, 78, 71, 13, 10, 26, 10]), chunk('IHDR', ihdr), chunk('IDAT', deflateSync(raw)), chunk('IEND', Buffer.alloc(0))])
+}
+
 // The film: a three-quarter view, the shackle lifts and swings open, then holds.
 const YAW = -0.42, TILT = 0.18
 const ease = t => t < 0.5 ? 2 * t * t : 1 - Math.pow(-2 * t + 2, 2) / 2
@@ -145,7 +170,11 @@ const asHalves = rows => {
   }
   return out
 }
-if (process.argv.includes('--preview')) {
+if (process.argv.includes('--png')) {
+  const dir = process.argv[process.argv.indexOf('--png') + 1]; mkdirSync(dir, { recursive: true })
+  poses.forEach((p, i) => writeFileSync(join(dir, `lock-${String(i).padStart(2, '0')}.png`), png(220, 220, p)))
+  console.log(`wrote ${poses.length} PNG frames (220x220) to ${dir}`)
+} else if (process.argv.includes('--preview')) {
   // Side by side: soft cells (now), cel-shaded cells, cel-shaded half blocks at double resolution.
   const [w, h] = SIZES[process.argv[3] || 'hero']
   const A = poses.map(p => asCells(frame(w, h, p)))
