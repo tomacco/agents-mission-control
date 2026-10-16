@@ -1,5 +1,6 @@
 export type Identity = { agent: string; subtitle: string }
 export type LeaseView = { scope: 'session' | 'once'; reason: string; paths: string[]; since: string }
+export type Reach = { terminal: string[]; amcOnly: string[]; asked: boolean }
 export type RunView = { id: string; command: string; reason: string; exit: number | null; tail: string[]; at: number }
 
 declare module 'claude-code' {
@@ -12,6 +13,7 @@ declare module 'claude-code' {
       tick: number
       spin: number
       asking: { reason: string; paths: string[] } | null
+      reach: Reach | null
     }
   }
 }

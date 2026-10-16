@@ -3,6 +3,7 @@ import { expect, test } from 'claude-code/testing'
 import { GENERIC, ago, newestFirst, sessionName } from '../hooks/format'
 import { lockRows, tone } from '../hooks/lock'
 import { orbRows } from '../hooks/orb'
+import { sortReach } from '../hooks/reach'
 import type { RunView } from '../types'
 
 // Every string drawn, in order, so the test reads the pane as the person does.
@@ -85,4 +86,16 @@ test('the lock is drawn in Braille and its shackle rises when open', () => {
   expect(topSteel(open)).toBeGreaterThan(topSteel(shut))
   expect(tone('#808080', 1)).toBe('#ffffff')
   expect(tone('#808080', -1)).toBe('#000000')
+})
+
+test('the header sorts places into what Terminal reads and what only AMC reaches', () => {
+  const r = sortReach([
+    { path: '.ssh', exitCode: 0, stderr: '' },
+    { path: 'Library/Mail', exitCode: 1, stderr: 'ls: /Users/x/Library/Mail: Operation not permitted' },
+    { path: 'Desktop', exitCode: 1, stderr: 'ls: /Users/x/Desktop: Operation not permitted' },
+    { path: '.aws', exitCode: 1, stderr: 'ls: /Users/x/.aws: No such file or directory' },
+  ], true)
+  expect(r.terminal).toEqual(['.ssh'])
+  expect(r.amcOnly).toEqual(['Mail', 'Desktop'])
+  expect(r.asked).toBe(true)
 })

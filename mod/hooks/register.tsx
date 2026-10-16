@@ -1,10 +1,11 @@
 import { atom, read, update } from 'claude-code'
 import type { EngineInterface, Register } from 'claude-code'
 
-import type { Identity, LeaseView, RunView } from '../types'
+import type { Identity, LeaseView, Reach, RunView } from '../types'
 import { GENERIC, ago, newestFirst, sessionName } from './format'
 import { lockRows, tone } from './lock'
 import { orbRows } from './orb'
+import { ASKING, QUIET, sortReach } from './reach'
 
 // Full Disk Access for agents without giving it to Terminal. Agents Mission Control (the menu bar app) holds
 // the grant, asks the person with Touch ID before it opens access for a session, and runs the commands as
@@ -19,6 +20,7 @@ const runs = atom({ ...S, key: 'runs' } as const, [] as RunView[])
 const tick = atom({ ...S, key: 'tick' } as const, 0)  // bumped every 30 s so relative times redraw
 const spin = atom({ ...S, key: 'spin' } as const, 0)  // bumped while a command runs, for the spinner
 const asking = atom({ ...S, key: 'asking' } as const, null as { reason: string; paths: string[] } | null)  // Touch ID is up
+const reach = atom({ ...S, key: 'reach' } as const, null as Reach | null)  // what Terminal reads without AMC
 
 const TOOL = 'privileged_bash'
 const PANE = 'amc'
@@ -88,11 +90,22 @@ async function send($: EngineInterface, req: Record<string, unknown>, timeoutMs?
   return r
 }
 
+// Lists each place from this process, which macOS charges to Terminal, so the answer is Terminal's own.
+async function checkReach($: EngineInterface, asked: boolean) {
+  const home = await $.env.get('HOME')
+  const places = asked ? [...QUIET, ...ASKING] : QUIET
+  const checked = await Promise.all(places.map(async path => {
+    const r = await $.process.run(['/bin/ls', `${home}/${path}`])
+    return { path, exitCode: r.exitCode, stderr: String(r.stderr ?? '') }
+  }))
+  await update($, reach, () => sortReach(checked, asked))
+}
 
 // Installed in the middle of a session, the plugin misses session.start; the first prompt sets it up instead.
 async function setUp($: EngineInterface) {
   if (!(await read($, color))) await update($, color, () => COLORS[Math.floor(Math.random() * COLORS.length)])
   $.clock.every(30000, () => void update($, tick, n => n + 1))
+  void checkReach($, false)
   const st = await call($, { op: 'status' })
   if (st.error) $.ui.status('⚠ Agents Mission Control is not running: privileged sessions are off')
   else if (st.fda === false) $.ui.status('⚠ Agents Mission Control has no Full Disk Access yet (asked on first use)')
@@ -255,11 +268,13 @@ export const register: Register = on => {
 
   // /amc shows the pane on demand: what access this session holds and its latest runs.
   on('command.run', { command: 'amc' }, async $ => {
-    const [st, l, list] = await Promise.all([call($, { op: 'status' }), read($, lease), read($, runs)])
+    const [st, l, list] = await Promise.all([call($, { op: 'status' }), read($, lease), read($, runs), checkReach($, true)])
     await $.ui.open({ id: PANE, title: 'Privileged', columns: 36 })
     const app = st.error ? 'Agents Mission Control is not running' : st.fda ? 'the app has Full Disk Access' : 'the app has no Full Disk Access yet'
     const access = l ? `this session has access (${l.reason})` : 'this session has no access'
-    return { text: `${access}; ${app}; ${list.length} privileged run${list.length === 1 ? '' : 's'}.` }
+    const r = await read($, reach)
+    const open = r ? ` Terminal reads without AMC: home, ${r.terminal.join(', ') || 'nothing else checked'}; only through AMC: ${r.amcOnly.join(', ') || 'nothing checked'}.` : ''
+    return { text: `${access}; ${app}; ${list.length} privileged run${list.length === 1 ? '' : 's'}.${open}` }
   })
 
   on('session.end', async ($, e, next) => {
@@ -269,8 +284,8 @@ export const register: Register = on => {
 
   on('ui.render', { component: 'Pane', requestId: PANE }, async ($, e: any) => {
     const { Box, Text } = $.ui.resolve(e)
-    const [stored, who, l, list, , frame, ask] = await Promise.all([
-      read($, color), read($, identity), read($, lease), read($, runs), read($, tick), read($, spin), read($, asking)])
+    const [stored, who, l, list, , frame, ask, where] = await Promise.all([
+      read($, color), read($, identity), read($, lease), read($, runs), read($, tick), read($, spin), read($, asking), read($, reach)])
     const c = stored || COLORS[0]!  // an empty color makes the engine refuse the whole pane
     const width = Math.max(20, e.props?.bodyColumns ?? 36)
     const narrow = width < 30
@@ -319,6 +334,12 @@ export const register: Register = on => {
             <Text dimColor>{summary}</Text>
           </Box>
         </Box>
+        {where && !narrow && (
+          <Box flexDirection="column" marginTop={1}>
+            <Text><Text color="subtle" bold>{'TERMINAL '}</Text><Text dimColor>{['~', ...where.terminal].join(' ')}</Text></Text>
+            <Text><Text color="subtle" bold>{'AMC ONLY '}</Text><Text dimColor>{where.amcOnly.join(' ') || 'nothing'}</Text></Text>
+          </Box>
+        )}
         {ask && (
           <Box flexDirection="column" marginTop={1} alignItems="center">
             {orbRows('breathing', now / 1000, narrow ? 12 : 18, narrow ? 6 : 9).map(row => (
