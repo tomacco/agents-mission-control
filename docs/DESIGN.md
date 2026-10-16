@@ -57,4 +57,5 @@ Frame animations run at 10 fps. Sounds play only when Agent Board's hands off is
 ## Rendering rules
 
 - Never draw icons with half-block glyphs (`▀ ▄`): Terminal.app leaves a seam on every row. Use Braille dots, or background-colored cells for big type.
+- The README art (`docs/readme/*.svg`) is drawn from the tokens by `python3 tools/readme-art.py`. Run it after any token change.
 - Read a pane's size and placement from `e.props`. An invalid color makes Claude Code refuse the whole pane.
