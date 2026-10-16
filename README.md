@@ -1,6 +1,4 @@
-# Agents Mission Control
-
-Full Disk Access for Claude Code agents on macOS, one session at a time, approved with Touch ID, with a trace of every command.
+<h1 align="center"><img src="docs/readme/hero.svg" width="960" alt="Agents Mission Control: Full Disk Access for Claude Code agents on macOS, one session at a time, approved with Touch ID, with a trace of every command"></h1>
 
 Version 0.2.0. macOS 26 or later, Apple Silicon. MIT license. By Ivan Gonzalez (tomacco) · [tomac.co](https://tomac.co)
 
@@ -31,6 +29,8 @@ The app has no menu bar item and no window. Everything you see happens in the in
 `build.sh` signs with the first "Developer ID Application" identity in your keychain. Without one the app is signed ad hoc, and macOS then forgets the Full Disk Access grant on every rebuild.
 
 ## How it works
+
+<p align="center"><img src="docs/readme/pane.svg" width="960" alt="The pane in Claude Code: the agent, ACCESS OPEN, why access was given, and recent commands"></p>
 
 1. The `amc` plugin gives each Claude Code session the tool `privileged_bash` (command, reason, paths, agent name, subtitle).
 2. The first call of a session makes the app ask you for Touch ID (or your password), showing the agent, the reason and the paths. That approval covers the session and ends with it.
