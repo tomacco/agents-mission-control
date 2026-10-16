@@ -292,8 +292,10 @@ export const register: Register = on => {
     const now = Date.now()
     const fit = (text: string, room: number) => (text.length > room ? text.slice(0, Math.max(1, room - 1)) + '…' : text)
     // The installer's lock; the shackle rises over a few frames once access opens (frames come from the run spinner).
-    const lift = l ? Math.min(LIFT, Math.max(0, (now - Date.parse(l.since || '')) / 150) || LIFT) : 0
-    const lock = lockPixels(lift).map(row => (
+    const size = width >= 44 ? 'full' : 'mini'                 // the mini lock keeps narrow panes readable
+    const maxLift = size === 'full' ? LIFT : 1
+    const lift = l ? Math.min(maxLift, Math.max(0, (now - Date.parse(l.since || '')) / 150) || maxLift) : 0
+    const lock = lockPixels(lift, size).map(row => (
       <Text>{row.map(color => color ? <Text backgroundColor={color}>{'  '}</Text> : <Text>{'  '}</Text>)}</Text>
     ))
     const badge = ask
@@ -323,10 +325,10 @@ export const register: Register = on => {
     return (
       <Box flexDirection="column" paddingX={1}>
         <Box flexDirection="row">
-          <Box flexDirection="column">{lock}</Box>
+          <Box flexDirection="column" flexShrink={0}>{lock}</Box>
           <Box flexDirection="column" marginLeft={2}>
-            <Text color={c} bold>{fit(who?.agent ?? 'No agent yet', width - 24)}</Text>
-            <Text dimColor>{fit(who?.subtitle ?? 'waiting for a privileged request', width - 24)}</Text>
+            <Text color={c} bold>{fit(who?.agent ?? 'No agent yet', width - (size === 'full' ? 24 : 16))}</Text>
+            <Text dimColor>{fit(who?.subtitle ?? 'waiting for a privileged request', width - (size === 'full' ? 24 : 16))}</Text>
             <Text> </Text>
             {badge}
             <Text dimColor>{summary}</Text>
