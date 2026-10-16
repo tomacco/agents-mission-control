@@ -3,7 +3,7 @@ import type { EngineInterface, Register } from 'claude-code'
 
 import type { Identity, LeaseView, Reach, RunView } from '../types'
 import { GENERIC, ago, newestFirst, sessionName } from './format'
-import { lockRows, tone } from './lock'
+import { LIFT, lockPixels } from './lock'
 import { orbRows } from './orb'
 import { ASKING, QUIET, sortReach } from './reach'
 
@@ -291,12 +291,10 @@ export const register: Register = on => {
     const narrow = width < 30
     const now = Date.now()
     const fit = (text: string, room: number) => (text.length > room ? text.slice(0, Math.max(1, room - 1)) + '…' : text)
-    // The shackle slides up over a third of a second once access opens (frames come from the run spinner).
-    const lift = l ? Math.min(4, Math.max(0, (now - Date.parse(l.since || '')) / 80) || 4) : 0
-    const shades = [c, tone(c, -0.28), c, tone(c, 0.3)]
-    const lock = lockRows(lift).map(row => (
-      <Text>{row.map(cell => cell.part === 'steel' ? <Text color={P.steel}>{cell.ch}</Text>
-        : cell.part === 'body' ? <Text color={shades[cell.shade]}>{cell.ch}</Text> : <Text>{cell.ch}</Text>)}</Text>
+    // The installer's lock; the shackle rises over a few frames once access opens (frames come from the run spinner).
+    const lift = l ? Math.min(LIFT, Math.max(0, (now - Date.parse(l.since || '')) / 150) || LIFT) : 0
+    const lock = lockPixels(lift).map(row => (
+      <Text>{row.map(color => color ? <Text backgroundColor={color}>{'  '}</Text> : <Text>{'  '}</Text>)}</Text>
     ))
     const badge = ask
       ? <Text backgroundColor={P.touch[0]} color={P.openText} bold>{' ◉ TOUCH ID '}</Text>
@@ -327,8 +325,8 @@ export const register: Register = on => {
         <Box flexDirection="row">
           <Box flexDirection="column">{lock}</Box>
           <Box flexDirection="column" marginLeft={2}>
-            <Text color={c} bold>{fit(who?.agent ?? 'No agent yet', width - 20)}</Text>
-            <Text dimColor>{fit(who?.subtitle ?? 'waiting for a privileged request', width - 20)}</Text>
+            <Text color={c} bold>{fit(who?.agent ?? 'No agent yet', width - 24)}</Text>
+            <Text dimColor>{fit(who?.subtitle ?? 'waiting for a privileged request', width - 24)}</Text>
             <Text> </Text>
             {badge}
             <Text dimColor>{summary}</Text>

@@ -1,7 +1,7 @@
 import { expect, test } from 'claude-code/testing'
 
 import { GENERIC, ago, newestFirst, sessionName } from '../hooks/format'
-import { lockRows, tone } from '../hooks/lock'
+import { LIFT, lockPixels } from '../hooks/lock'
 import { orbRows } from '../hooks/orb'
 import { sortReach } from '../hooks/reach'
 import type { RunView } from '../types'
@@ -75,17 +75,14 @@ test('a thinking orb frame is drawn as Braille rows', () => {
   expect(orbRows('breathing', 1.3).map(r => r.map(c => c.ch).join(''))).not.toEqual(orbRows('breathing', 2.1).map(r => r.map(c => c.ch).join('')))
 })
 
-test('the lock is drawn in Braille and its shackle rises when open', () => {
-  const shut = lockRows(0), open = lockRows(4)
-  expect(shut.length).toBe(7)
-  expect(shut.every(r => r.length === 10)).toBe(true)
-  expect(shut.flat().some(c => c.part === 'steel')).toBe(true)
-  expect(shut.flat().some(c => c.part === 'body' && c.shade === 3)).toBe(true)
-  // raised, the shackle's arc fills more of the top row
-  const topSteel = (rows: typeof shut) => rows[0]!.filter(c => c.part === 'steel').length
-  expect(topSteel(open)).toBeGreaterThan(topSteel(shut))
-  expect(tone('#808080', 1)).toBe('#ffffff')
-  expect(tone('#808080', -1)).toBe('#000000')
+test('the pane lock is the installer lock, and its shackle rises when open', () => {
+  const shut = lockPixels(0), open = lockPixels(LIFT)
+  expect(shut.length).toBe(open.length)                           // same height: the header does not jump
+  expect(shut.every(r => r.length === 9)).toBe(true)
+  expect(shut.flat().every(c => c === '' || /^#[0-9a-f]{6}$/i.test(c))).toBe(true)   // only valid colors reach the pane
+  expect(shut.at(-1)![0]).toBe('#d97757')                          // Aurora starts at the body's left edge
+  const firstSteel = (px: string[][]) => px.findIndex(r => r.some(Boolean))
+  expect(firstSteel(open)).toBeLessThan(firstSteel(shut))
 })
 
 test('the header sorts places into what Terminal reads and what only AMC reaches', () => {
