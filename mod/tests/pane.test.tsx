@@ -83,6 +83,10 @@ test('the pane lock is the installer lock, and its shackle rises when open', () 
   expect(shut.at(-1)![0]).toBe('#d97757')                          // Aurora starts at the body's left edge
   const firstSteel = (px: string[][]) => px.findIndex(r => r.some(Boolean))
   expect(firstSteel(open)).toBeLessThan(firstSteel(shut))
+  const mini = lockPixels(0, 'mini'), miniOpen = lockPixels(1, 'mini')
+  expect(mini.every(r => r.length === 5)).toBe(true)                  // 10 columns: fits a narrow pane
+  expect(mini.length).toBe(miniOpen.length)
+  expect(firstSteel(miniOpen)).toBeLessThan(firstSteel(mini))
 })
 
 test('the header sorts places into what Terminal reads and what only AMC reaches', () => {
