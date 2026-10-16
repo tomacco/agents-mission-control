@@ -121,14 +121,14 @@ function frame(w, h, { yaw, tilt, lift, swing }, cel = false) {
 
 // A high-resolution frame as an RGBA PNG (2x2 samples per pixel), for symbol converters such as chafa that
 // pick each cell's character by shape, the way sharp terminal art is made.
-function png(w, h, pose) {
+function png(w, h, pose, cel = false) {
   const scale = 2.25 / h, raw = Buffer.alloc((w * 4 + 1) * h)
   for (let y = 0; y < h; y++) {
     raw[y * (w * 4 + 1)] = 0
     for (let x = 0; x < w; x++) {
       let acc = [0, 0, 0], hits = 0
       for (let sy = 0; sy < 3; sy++) for (let sx = 0; sx < 3; sx++) {
-        const c = shade((x + (sx + 0.5) / 3 - w / 2) * scale, (h / 2 - (y + (sy + 0.5) / 3)) * scale + 0.02, pose.yaw, pose.tilt, pose.lift, pose.swing)
+        const c = shade((x + (sx + 0.5) / 3 - w / 2) * scale, (h / 2 - (y + (sy + 0.5) / 3)) * scale + 0.02, pose.yaw, pose.tilt, pose.lift, pose.swing, cel)
         if (c) { acc = acc.map((v, i) => v + c[i]); hits++ }
       }
       const o = y * (w * 4 + 1) + 1 + x * 4
@@ -172,7 +172,7 @@ const asHalves = rows => {
 }
 if (process.argv.includes('--png')) {
   const dir = process.argv[process.argv.indexOf('--png') + 1]; mkdirSync(dir, { recursive: true })
-  poses.forEach((p, i) => writeFileSync(join(dir, `lock-${String(i).padStart(2, '0')}.png`), png(220, 220, p)))
+  poses.forEach((p, i) => writeFileSync(join(dir, `lock-${String(i).padStart(2, '0')}.png`), png(220, 220, p, process.argv.includes('--cel'))))
   console.log(`wrote ${poses.length} PNG frames (220x220) to ${dir}`)
 } else if (process.argv.includes('--preview')) {
   // Side by side: soft cells (now), cel-shaded cells, cel-shaded half blocks at double resolution.
