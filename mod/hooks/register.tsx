@@ -25,10 +25,10 @@ const reach = atom({ ...S, key: 'reach' } as const, null as Reach | null)  // wh
 const TOOL = 'privileged_bash'
 const PANE = 'amc'
 // One palette for the pane: a soft accent per session, and fixed colors for state, readable on light and dark.
-const COLORS = ['#E8836B', '#E5678F', '#9B7BE0', '#6E8BF0', '#3FB8AF', '#5CC98A', '#E8B04A', '#4FB3E8']
+const COLORS = ['#D97757',  '#D8676C',  '#D75880',  '#D64895',  '#CC42A5',  '#B746B0',  '#A34ABB',  '#8E4EC6']  // Aurora sampled at 8 points (design/tokens.json)
 const P = {
-  steel: '#A7AEC0', keyhole: '#1E1A26', ok: '#4CC38A', bad: '#F06A6A', busy: '#E8B04A',
-  open: '#2F9E6E', openText: '#FFFFFF', shut: '#2E3140', shutText: '#AEB4C6', touch: ['#FF2D55', '#FF6B8B', '#FFB3C4'],
+  steel: '#AEB4C6', keyhole: '#1E1A26', ok: '#4CC38A', bad: '#F06A6A', busy: '#E8B04A',
+  open: '#4CC38A', openText: '#1E1A26', shut: '#2E3140', shutText: '#AEB4C6', touch: ['#FF2D55', '#FF6B8B', '#FFB3C4'],
 }
 
 // While Touch ID is up the pane shows a breathing thinking orb (mod/hooks/orb.ts, engine by Jakub Antalik).

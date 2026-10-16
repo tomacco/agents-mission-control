@@ -13,8 +13,12 @@ OUT = sys.stdout
 SHACKLE = ["..XXXXX..", ".XX...XX.", ".X.....X.", ".X.....X."]
 BODY = ["XXXXXXXXX", "XXX...XXX", "XXXX.XXXX", "XXXX.XXXX", "XXXXXXXXX", "XXXXXXXXX"]
 LIFT = 2  # rows the shackle starts above its closed place
-ORANGE, PINK, VIOLET = (217, 119, 87), (214, 64, 159), (142, 78, 198)
-GREEN, AMBER, RED, GREY, WHITE = (48, 164, 108), (255, 197, 61), (229, 72, 77), (128, 128, 140), (235, 235, 240)
+TOKENS = json.load(open(os.path.join(ROOT, "design", "tokens.json")))   # the design system's colors
+_rgb = lambda h: tuple(int(h[i:i + 2], 16) for i in (1, 3, 5))
+ORANGE, PINK, VIOLET = (_rgb(h) for h in TOKENS["aurora"])
+GREEN, AMBER, RED, INFO = (_rgb(TOKENS["state"][k]) for k in ("ok", "busy", "bad", "info"))
+GREY, WHITE = _rgb(TOKENS["neutral"]["50"]), _rgb(TOKENS["neutral"]["100"])
+STEEL, KEYHOLE = (_rgb(TOKENS["neutral"]["70"]), _rgb(TOKENS["neutral"]["100"])), _rgb(TOKENS["neutral"]["0"])
 SPIN = "⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏"
 STEPS = [("build", "Building the app"), ("sign", "Checking the signature"), ("app", "Installing into ~/Applications"),
          ("agents", "Starting the app at login"), ("start", "Waiting for the app to answer")]
@@ -59,7 +63,7 @@ def lock_rows(lift, shine=None, flash=0.0):
     width = len(BODY[0]); h = LIFT + len(SHACKLE) + len(BODY)
     px = [[None] * width for _ in range(h)]
     top = LIFT - lift
-    steel = lambda c: mix((150, 150, 165), (225, 225, 235), c / width)
+    steel = lambda c: mix(STEEL[0], STEEL[1], c / width)
     for r, row in enumerate(SHACKLE):
         for c, ch in enumerate(row):
             if ch == "X": px[top + r][c] = steel(c)
@@ -69,7 +73,7 @@ def lock_rows(lift, shine=None, flash=0.0):
     for r, row in enumerate(BODY):
         for c, ch in enumerate(row):
             if ch != "X":
-                px[LIFT + len(SHACKLE) + r][c] = (40, 26, 46); continue
+                px[LIFT + len(SHACKLE) + r][c] = KEYHOLE; continue
             t = c / (width - 1); col = mix(ORANGE, PINK, t * 2) if t < .5 else mix(PINK, VIOLET, (t - .5) * 2)
             if shine is not None and abs((c - r * 0.8) - shine) < 0.9: col = mix(col, (255, 255, 255), 0.7)
             px[LIFT + len(SHACKLE) + r][c] = mix(col, (255, 255, 255), flash)
@@ -270,7 +274,7 @@ def celebrate(text, colors):
     import random
     rows, n = big(text, colors)
     width = max(n + 8, min(cols() - 4, 76)); height = 11; top = 3; left = (width - n) // 2
-    bits = [("✦", ORANGE), ("•", PINK), ("▪", VIOLET), ("◆", AMBER), ("✧", GREEN), ("●", (62, 99, 221)), ("▴", (18, 165, 148))]
+    bits = [("✦", ORANGE), ("•", PINK), ("▪", VIOLET), ("◆", AMBER), ("✧", GREEN), ("●", INFO), ("▴", WHITE)]
     flakes = []
     w("\x1b[?25l"); drawn = 0
     for f in range(46):
@@ -344,7 +348,7 @@ def wait_for_grant(sock):
         w("\x1b[?25h")
     w("\r\x1b[2K\n")
     chime()
-    celebrate("ALL SET!", (GREEN, (18, 165, 148)))
+    celebrate("ALL SET!", (GREEN, INFO))
     w(f"\n  {fg(GREEN)}{B}✓ Full Disk Access is on.{R} {fg(GREY)}Privileged sessions are ready.{R}\n")
 
 
