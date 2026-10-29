@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- Automation: commands AMC runs can control another app with osascript, and macOS charges the grant to AMC, not Terminal. `build.sh` writes `NSAppleEventsUsageDescription`, the text of the prompt, and fails the build when it is missing. Plugin 0.2.14 routes "Not authorized to send Apple events" (-1743) to `privileged_bash`.
 - Plugin 0.2.10: the pane header says what Terminal reads without AMC (TERMINAL: home, .ssh, .aws, ...) and what only AMC reaches (AMC ONLY: Mail, Messages, ...). Session start checks the places macOS refuses silently; `/amc` also checks Desktop, Documents and Downloads, which can raise a macOS prompt.
 - Plugin 0.2.9: the header lock is drawn in Braille from shapes (round shackle, shaded rounded body, keyhole) in the session color, and its shackle slides up when access opens.
 - Plugin 0.2.8: while Touch ID is up the pane shows a breathing thinking orb, drawn in Braille from the thinking-orbs engine by Jakub Antalik (MIT, vendored in `mod/vendor/thinking-orbs`).

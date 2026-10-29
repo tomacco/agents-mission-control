@@ -19,10 +19,14 @@ cat > "$APP/Contents/Info.plist" <<PLIST
 <key>CFBundleShortVersionString</key><string>0.2.0</string>
 <key>LSMinimumSystemVersion</key><string>26.0</string>
 <key>LSUIElement</key><true/>
+<key>NSAppleEventsUsageDescription</key><string>A command an agent runs here, approved with your Touch ID, wants to control this app.</string>
 <key>AMCRoot</key><string>$PWD</string>
 <key>AMCHome</key><string>$AMC_HOME</string>
 </dict></plist>
 PLIST
+# The Automation prompt shows this text when an approved command controls another app (osascript). Keep it for
+# hardened runtime (task-5), which also needs the apple-events entitlement.
+plutil -extract NSAppleEventsUsageDescription raw "$APP/Contents/Info.plist" >/dev/null
 SIGNER=$(security find-identity -v -p codesigning | sed -n 's/.*"\(Developer ID Application:[^"]*\)".*/\1/p' | head -1)
 codesign --force --sign "${SIGNER:--}" "$APP"
 echo "$APP"

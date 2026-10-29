@@ -28,3 +28,7 @@ staleness_threshold: 90
   confidence: validated
 - A command in a Bash call whose text contains `pkill` or `quit app` (even inside a heredoc) trips the session's app-quit guard. Write such scripts with the file editor. evidence: 2026-10-15 split
   confidence: provisional
+- `osascript -e 'tell application "X" to get name'` sends no Apple event when X is not running (AppleScript answers name, id and version itself), so it proves nothing about Automation. Use a real command, for example `count workbooks` for Excel. evidence: backlog task-6
+  confidence: validated
+- macOS 27.2 here has no per-user TCC.db at `~/Library/Application Support/com.apple.TCC/`, not even for a process with Full Disk Access (the system one has no AppleEvents rows). Read Automation with `tccutil list -s AppleEvents [-b <bundle id>]` (exit 0 granted, 1 denied); it does not name the target app. A build without `NSAppleEventsUsageDescription` and without hardened runtime still gets the prompt (no -1743). evidence: backlog task-6
+  confidence: validated

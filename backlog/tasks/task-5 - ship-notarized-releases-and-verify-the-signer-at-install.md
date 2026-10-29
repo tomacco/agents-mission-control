@@ -13,6 +13,8 @@ dependencies: []
 
 Anyone can print the author's name; only a signature proves who built the app. Users who build from source sign it themselves or ad hoc. Publish a Developer ID-signed, notarized app per GitHub release; the installer downloads it and refuses one not signed by team Y4UQ4S5ANQ, and shows that check.
 
+Notarizing needs hardened runtime. With it on, the app needs the entitlement `com.apple.security.automation.apple-events`, or Apple Events from its children (Automation, task-6) stop working.
+
 ## Acceptance Criteria
 
 - [ ] Each release has a notarized zip of the app
