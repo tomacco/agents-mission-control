@@ -45,7 +45,7 @@ test('the pane draws, and says how to get the side panel when it sits above the 
 })
 
 // The hint after "Operation not permitted": the test's own Bash stands for the real tool beneath the plugin.
-const HINT = /no Full Disk Access/
+const HINT = /retry with mcp__amc__privileged_bash/
 test('no hint when the words only appear in successful output', async ($, on) => {
   on('tool.call', { tool: 'Bash' }, () => ({ result: { stdout: "const DENIED = /Operation not permitted/", stderr: '' } }) as never)
   const ran = await $.tool.call({ tool: 'Bash', command: 'grep -r Operation .' } as never)
@@ -55,6 +55,12 @@ test('no hint when the words only appear in successful output', async ($, on) =>
 test('a hint when a command failed on it', async ($, on) => {
   on('tool.call', { tool: 'Bash' }, () => ({ result: { stdout: '', stderr: 'ls: ~/Library/Mail: Operation not permitted' } }) as never)
   const ran = await $.tool.call({ tool: 'Bash', command: 'ls ~/Library/Mail' } as never)
+  expect(JSON.stringify(ran)).toMatch(HINT)
+})
+
+test('a hint when an Apple event was refused', async ($, on) => {
+  on('tool.call', { tool: 'Bash' }, () => ({ result: { stdout: '', stderr: 'execution error: Not authorized to send Apple events to Microsoft Excel. (-1743)' } }) as never)
+  const ran = await $.tool.call({ tool: 'Bash', command: 'osascript -e \'tell application "Microsoft Excel" to count workbooks\'' } as never)
   expect(JSON.stringify(ran)).toMatch(HINT)
 })
 

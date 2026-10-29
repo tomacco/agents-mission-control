@@ -4,7 +4,7 @@ Version 0.2.0. macOS 26 or later, Apple Silicon. MIT license. By Ivan Gonzalez (
 
 ## Why
 
-macOS grants Full Disk Access per app. Giving it to Terminal gives it to every process started from Terminal, forever. Agents Mission Control holds the grant instead and runs an agent's commands as its own child processes, which inherit it. Terminal stays without it, and every session needs your fingerprint.
+macOS grants Full Disk Access per app. Giving it to Terminal gives it to every process started from Terminal, forever. Agents Mission Control holds the grant instead and runs an agent's commands as its own child processes, which inherit it. The same goes for Automation: when one of those commands controls another app with osascript, macOS asks for AMC, not Terminal. Terminal stays without it, and every session needs your fingerprint.
 
 ## Install
 

@@ -32,7 +32,7 @@ const P = {
 }
 
 // While Touch ID is up the pane shows a breathing thinking orb (mod/hooks/orb.ts, engine by Jakub Antalik).
-const DENIED = /Operation not permitted|permission to view it|EPERM/
+const DENIED = /Operation not permitted|permission to view it|EPERM|Not authorized to send Apple events|-1743/
 
 type Reply = { error?: string; fda?: boolean; exit?: number; log?: string; bytes?: number; sha256?: string; timed_out?: boolean }
 
@@ -115,9 +115,10 @@ async function setUp($: EngineInterface) {
     isDeferred: false,
     description:
       'Run a shell command with Full Disk Access, for paths macOS protects from Terminal (Mail, Messages, ' +
-      'Safari, other apps\' containers, ~/Library/Group Containers, TCC data). The person approves the first ' +
+      'Safari, other apps\' containers, ~/Library/Group Containers, TCC data), and with Automation, for ' +
+      'controlling another app with osascript. The person approves the first ' +
       'request of the session with Touch ID; every command is logged with its reason. Use it only after a normal ' +
-      'Bash or Read call failed with "Operation not permitted", never as a general shell. Read-only commands ' +
+      'Bash or Read call failed with "Operation not permitted" or "Not authorized to send Apple events" (-1743), never as a general shell. Read-only commands ' +
       'unless the person asked for a change. Never call the app\'s socket yourself.',
     inputSchema: {
       type: 'object',
@@ -254,8 +255,8 @@ export const register: Register = on => {
     deny: `amc: the privileged_bash handler failed (${String(next.error?.cause ?? next.error ?? 'unknown').slice(0, 200)}). Tell the person; do not work around it.`,
   }))
 
-  // Point the model at the privileged tool when Terminal's lack of Full Disk Access is the cause.
-  const hint = `This failed because Terminal has no Full Disk Access. If the access is needed, retry with mcp__amc__${TOOL} and a reason.`
+  // Point the model at the privileged tool when Terminal's lack of Full Disk Access or Automation is the cause.
+  const hint = `This failed because macOS refuses Terminal (Full Disk Access, or Automation of another app). If the access is needed, retry with mcp__amc__${TOOL} and a reason.`
   // Only a call that failed on it counts: an error whose text says so, or a command's stderr. Output that merely
   // contains the words (a search through this plugin's own source) does not.
   on('tool.call', { tool: /^(Read|Bash)$/ }, async ($, e, next) => {

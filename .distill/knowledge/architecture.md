@@ -20,7 +20,7 @@ staleness_threshold: 90
 ## Data flow
 - Plugin or `bin/amc-call` → `~/.amc/amc.sock` → app. Ops: open, run, end, status, grant (one JSON line each way).
 - Trust: caller must descend from Anthropic-signed Claude Code (dynamic code-signature check on the live pid); a lease belongs to that claude pid and opens only after Touch ID or the login password; scopes `once` and `session`.
-- Commands run as the app's children (`/bin/zsh -o pipefail -c`), inheriting its Full Disk Access; output to `~/.amc/runs/<id>.log`; every request hash-chained into `~/.amc/trace.jsonl`.
+- Commands run as the app's children (`/bin/zsh -o pipefail -c`), inheriting its Full Disk Access and its Automation grants (macOS charges Apple Events from them to the app and names it in the prompt; Info.plist carries `NSAppleEventsUsageDescription`); output to `~/.amc/runs/<id>.log`; every request hash-chained into `~/.amc/trace.jsonl`.
   evidence: Privileged.swift, mod/hooks/register.tsx, tests/test-privileged.sh
   confidence: validated
 
