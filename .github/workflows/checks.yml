@@ -32,7 +32,13 @@ jobs:
         run: |
           ./build.sh
           ! plutil -p build/AgentsMissionControl.app/Contents/Info.plist | grep /Users/
+      - name: Release binary holds no personal paths
+        run: zsh tests/check-personal.sh --artifact build/AgentsMissionControl.app
       - name: The verifier refuses anything but the notarized release
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
         run: zsh tests/test-verify.sh
       - name: Install, update and remove the release; install and remove from source
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
         run: AMC_TEST_SOURCE=1 zsh tests/test-install.sh

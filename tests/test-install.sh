@@ -1,7 +1,7 @@
 #!/bin/zsh
 # The install, update and removal a new user gets, end to end, on a clean macOS CI runner. It installs the REAL app
 # (bundle id co.tomac.amc), so it refuses to run outside CI; on your own Mac use tests/try-install.sh.
-#   zsh tests/test-install.sh [release.zip]   default: the latest GitHub release (release cases skipped if none)
+#   zsh tests/test-install.sh [release.zip]   default: the latest GitHub release (skipped only if none exists)
 #   AMC_TEST_SOURCE=1 zsh tests/test-install.sh   also the --from-source path on the test channel (builds the app)
 [[ $CI == true ]] || { print "test-install: CI only, it installs the real app. On a Mac: zsh tests/try-install.sh"; exit 2 }
 cd "${0:A:h:h}"; ROOT=$PWD
@@ -24,10 +24,8 @@ check "ad hoc zip refused" "! AMC_RELEASE_URL=file://$T/fake.zip ./install.sh"
 check "nothing installed after the refusal" "gone AgentsMissionControl co.tomac.amc ~/.amc"
 
 ZIP=${1:-}
-if [[ -z $ZIP ]] && curl -fsSL -o $T/release.zip \
-    https://github.com/tomacco/agents-mission-control/releases/latest/download/AgentsMissionControl.zip; then
-  ZIP=$T/release.zip
-fi
+source tests/release-zip.sh
+if [[ -z $ZIP ]] && fetch_release $T/release.zip; then ZIP=$T/release.zip; fi
 if [[ -n $ZIP ]]; then
   ditto -x -k $ZIP $T/rel; V=$(plutil -extract CFBundleShortVersionString raw $T/rel/AgentsMissionControl.app/Contents/Info.plist)
   print "== Install release $V"
@@ -43,13 +41,21 @@ if [[ -n $ZIP ]]; then
   check "uninstall exits 0" "./uninstall.sh --yes"
   check "nothing left" "sleep 2; gone AgentsMissionControl co.tomac.amc ~/.amc"
 else
-  print "skip  release install: no release published yet and no zip given"
+  print "skip  release install: GitHub has no signed release yet"
 fi
 
 if [[ -n $AMC_TEST_SOURCE ]]; then
   print "== Build from source (test channel)"
   check "source install exits 0" "AMC_CHANNEL=test ./install.sh"
   check "the test copy answers as $(<VERSION)" "answers ~/.amc-test/amc.sock $(<VERSION)"
+  print "== Update over a copy started outside launchd (as 0.2.0 and Finder start it)"
+  launchctl bootout gui/$(id -u) ~/Library/LaunchAgents/co.tomac.amc.test.app.plist
+  open ~/Applications/AgentsMissionControl-test.app; sleep 3
+  stray=$(pgrep -f 'AgentsMissionControl-test.app/Contents/MacOS/' | head -1)
+  check "the stray copy runs" "[[ -n $stray ]]"
+  check "update exits 0" "AMC_CHANNEL=test ./install.sh"
+  check "the stray copy is gone" "! kill -0 $stray 2>/dev/null"
+  check "the launchd copy answers" "answers ~/.amc-test/amc.sock $(<VERSION)"
   check "uninstall exits 0" "AMC_CHANNEL=test ./uninstall.sh --yes"
   check "nothing left" "sleep 2; gone AgentsMissionControl-test co.tomac.amc.test ~/.amc-test"
 fi

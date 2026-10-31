@@ -4,6 +4,14 @@
 # Runs in CI and in .githooks/pre-commit.   zsh tests/check-personal.sh
 cd "${0:A:h:h}"
 bad=0
+# --artifact <app>: scan a built app's bytes instead (the release zip ships it to every user).
+if [[ $1 == --artifact ]]; then
+  found=$(grep -a -r -o -E '/(Users|home)/[A-Za-z0-9._-]+' -- "$2" | grep -v -E ':/Users/Shared$' | sort -u)
+  me=$(id -un); [[ ${#me} -ge 4 ]] && found+=$'\n'$(grep -a -r -l -F -- "$me" "$2")
+  [[ -n ${found//$'\n'} ]] && { print -r -- "personal: $2 holds
+$found" | sed "s/$me/<login>/g"; exit 1 }
+  print "personal: $2 clean"; exit 0
+fi
 hit() { print -- "personal: $1"; bad=1 }
 files=(${(f)"$(git ls-files | grep -v '^mod/vendor/')"})
 paths=$(grep -n -I -o -E '/(Users|home)/[A-Za-z0-9._-]+' -- $files 2>/dev/null | grep -v -E ':/Users/(x|Shared)$|:/home/(runner|user)$')
