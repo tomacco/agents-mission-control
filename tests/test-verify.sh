@@ -22,7 +22,7 @@ bundle() {  # a minimal app bundle with the release's bundle id
 GOOD=${1:-}
 source tests/release-zip.sh
 if [[ -z $GOOD ]] && fetch_release $T/release.zip; then
-  ditto -x -k $T/release.zip $T/release && GOOD=$T/release/AgentsMissionControl.app
+  unzip_release $T/release.zip $T/release; GOOD=$T/release/AgentsMissionControl.app
 fi
 
 mkdir -p $T/empty;                       expect refuse "not a bundle" $T/empty

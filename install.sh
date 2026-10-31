@@ -39,8 +39,8 @@ sed "s|@HOME@|$HOME|g; s|@ID@|$ID|g; s|@APPFILE@|$APPFILE|g" launchd/co.tomac.am
 launchctl bootout gui/$(id -u) $plist 2>/dev/null || true
 # A copy started outside launchd (by 0.2.0 and earlier, Finder or `open`) survives the bootout and keeps the socket,
 # so the old build would go on answering. Stop every copy before launchd starts the new one.
-pkill -f "$APPFILE/Contents/MacOS/" 2>/dev/null || true
-for i in {1..20}; do pgrep -qf "$APPFILE/Contents/MacOS/" || break; sleep 0.25; done
+pkill -f "$APPRE" 2>/dev/null || true
+for i in {1..20}; do pgrep -qf "$APPRE" || break; sleep 0.25; done
 launchctl bootstrap gui/$(id -u) $plist
 # From 0.1.0, when this app also held hands off: its enforcer and Claude Code hook moved to Agent Board.
 launchctl bootout gui/$(id -u) $LA/$ID.amcd.plist 2>/dev/null || true; rm -f $LA/$ID.amcd.plist

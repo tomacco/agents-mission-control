@@ -6,8 +6,15 @@ cd "${0:A:h:h}"
 bad=0
 # --artifact <app>: scan a built app's bytes instead (the release zip ships it to every user).
 if [[ $1 == --artifact ]]; then
-  found=$(grep -a -r -o -E '/(Users|home)/[A-Za-z0-9._-]+' -- "$2" | grep -v -E ':/Users/Shared$' | sort -u)
-  me=$(id -un); [[ ${#me} -ge 4 ]] && found+=$'\n'$(grep -a -r -l -F -- "$me" "$2")
+  [[ -n $2 && -e $2 ]] || { print "personal: no artifact at '$2'"; exit 1 }
+  # grep exits 1 for "no match" and 2 for an error; an unreadable file must fail, not pass as clean.
+  raw=$(grep -a -r -o -E '/(Users|home)/[A-Za-z0-9._-]+' -- "$2"); (( $? > 1 )) && { print "personal: cannot read $2"; exit 1 }
+  found=$(print -r -- $raw | grep -v -E ':/Users/Shared$' | sort -u)
+  me=$(id -un)
+  if [[ ${#me} -ge 4 ]]; then
+    raw=$(grep -a -r -l -F -- "$me" "$2"); (( $? > 1 )) && { print "personal: cannot read $2"; exit 1 }
+    found+=$'\n'$raw
+  fi
   [[ -n ${found//$'\n'} ]] && { print -r -- "personal: $2 holds
 $found" | sed "s/$me/<login>/g"; exit 1 }
   print "personal: $2 clean"; exit 0

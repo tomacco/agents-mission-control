@@ -9,3 +9,6 @@ APPFILE=AgentsMissionControl${CH:+-$CH}.app
 AMC_HOME=$HOME/.amc${CH:+-$CH}
 CLAUDE_DIR=${CLAUDE_CONFIG_DIR:-$HOME/.claude}
 export AMC_SOCKET=$AMC_HOME/amc.sock
+# The app's own executable as an anchored regex (pgrep/pkill -f): this channel's copy and no other app.
+APPBIN=$HOME/Applications/$APPFILE/Contents/MacOS/AgentsMissionControl
+APPRE="^$(print -r -- $APPBIN | sed 's/[][\.*^$+?(){}|]/\\&/g')( |\$)"
