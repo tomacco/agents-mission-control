@@ -27,7 +27,7 @@ ZIP=${1:-}
 source tests/release-zip.sh
 if [[ -z $ZIP ]] && fetch_release $T/release.zip; then ZIP=$T/release.zip; fi
 if [[ -n $ZIP ]]; then
-  ditto -x -k $ZIP $T/rel; V=$(plutil -extract CFBundleShortVersionString raw $T/rel/AgentsMissionControl.app/Contents/Info.plist)
+  unzip_release $ZIP $T/rel; V=$(plutil -extract CFBundleShortVersionString raw $T/rel/AgentsMissionControl.app/Contents/Info.plist)
   print "== Install release $V"
   check "install exits 0" "AMC_RELEASE_URL=file://${ZIP:A} ./install.sh"
   check "installed app passes the verifier" "scripts/verify-app.sh ~/Applications/AgentsMissionControl.app"

@@ -12,7 +12,7 @@ for name in amcd app; do
   rm -f $LA/$ID.$name.plist
 done
 osascript -e "quit app id \"$ID\"" 2>/dev/null
-pkill -f "$APPFILE/Contents/MacOS/" 2>/dev/null
+pkill -f "$APPRE" 2>/dev/null
 rm -rf ~/Applications/$APPFILE
 tccutil reset All $ID >/dev/null 2>&1
 
