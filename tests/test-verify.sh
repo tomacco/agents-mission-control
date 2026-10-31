@@ -2,7 +2,7 @@
 # Prove that scripts/verify-app.sh, the gate install.sh puts in front of every download, passes the author's
 # notarized release and refuses everything else: no bundle, unsigned, ad hoc, the release re-signed by someone
 # else, the release changed after signing, and (on a Mac with a Developer ID) signed but not notarized.
-#   zsh tests/test-verify.sh [release.app]    default: the latest GitHub release (pass case skipped if none)
+#   zsh tests/test-verify.sh [release.app]    default: the latest GitHub release (skipped only if none exists)
 cd "${0:A:h:h}"
 V=$PWD/scripts/verify-app.sh T=$(mktemp -d -t amc-verify) fails=0
 trap 'rm -rf $T' EXIT
@@ -20,8 +20,8 @@ bundle() {  # a minimal app bundle with the release's bundle id
 }
 
 GOOD=${1:-}
-if [[ -z $GOOD ]] && curl -fsSL -o $T/release.zip \
-    https://github.com/tomacco/agents-mission-control/releases/latest/download/AgentsMissionControl.zip 2>/dev/null; then
+source tests/release-zip.sh
+if [[ -z $GOOD ]] && fetch_release $T/release.zip; then
   ditto -x -k $T/release.zip $T/release && GOOD=$T/release/AgentsMissionControl.app
 fi
 
@@ -41,7 +41,7 @@ if [[ -n $GOOD ]]; then
   ditto $GOOD $T/tampered.app; print '# changed' >> $T/tampered.app/Contents/Info.plist
   expect refuse "release changed after signing" $T/tampered.app
 else
-  print "skip  the release cases: no release published yet and no app given"
+  print "skip  the release cases: GitHub has no signed release yet"
 fi
 (( fails )) && print "test-verify: FAILED" || print "test-verify: all passed"
 exit $fails

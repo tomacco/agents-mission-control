@@ -37,6 +37,10 @@ LA=~/Library/LaunchAgents
 plist=$LA/$ID.app.plist
 sed "s|@HOME@|$HOME|g; s|@ID@|$ID|g; s|@APPFILE@|$APPFILE|g" launchd/co.tomac.amc.app.plist > $plist
 launchctl bootout gui/$(id -u) $plist 2>/dev/null || true
+# A copy started outside launchd (by 0.2.0 and earlier, Finder or `open`) survives the bootout and keeps the socket,
+# so the old build would go on answering. Stop every copy before launchd starts the new one.
+pkill -f "$APPFILE/Contents/MacOS/" 2>/dev/null || true
+for i in {1..20}; do pgrep -qf "$APPFILE/Contents/MacOS/" || break; sleep 0.25; done
 launchctl bootstrap gui/$(id -u) $plist
 # From 0.1.0, when this app also held hands off: its enforcer and Claude Code hook moved to Agent Board.
 launchctl bootout gui/$(id -u) $LA/$ID.amcd.plist 2>/dev/null || true; rm -f $LA/$ID.amcd.plist
@@ -53,7 +57,8 @@ echo "$APPNAME installed. Proof: tests/test-privileged.sh"
 # Full Disk Access: macOS has no prompt for it, so open the one toggle, show the app ready to drag in, and wait.
 step start "Waiting for the app to answer"
 call=$ROOT/bin/amc-call
-for i in {1..20}; do print '{"op":"status"}' | $call | grep -q '"leases"' && break; sleep 0.5; done
+for i in {1..40}; do print '{"op":"status"}' | $call | grep -q "\"version\":\"$new\"" && break; sleep 0.5; done
+print '{"op":"status"}' | $call | grep -q "\"version\":\"$new\"" || { print -u2 "The app did not answer as $new: see Console for $APPFILE"; exit 1 }
 if [[ -z $AMC_NO_GRANT && -z $AMC_UI ]] && print '{"op":"status"}' | $call | grep -q '"fda":false'; then
   print '{"op":"grant"}' | $call >/dev/null
   [[ -f ~/.agent-board/hands-off ]] || afplay /System/Library/Sounds/Glass.aiff &!

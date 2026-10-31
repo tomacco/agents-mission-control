@@ -8,6 +8,8 @@ swift build -c release
 APP="build/$APPFILE"
 rm -rf "$APP" && mkdir -p "$APP/Contents/MacOS"
 cp .build/release/AgentsMissionControl "$APP/Contents/MacOS/"
+# Drop the debug map: it holds the absolute paths of the sources and object files, so the builder's home folder.
+strip -S "$APP/Contents/MacOS/AgentsMissionControl"
 cat > "$APP/Contents/Info.plist" <<PLIST
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
