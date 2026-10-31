@@ -3,4 +3,6 @@
 [ -f tools/backlog.py ] && { python3 tools/backlog.py check --quiet || exit 1; }
 # Refuse a commit whose compiled agent files drifted from .distill/ (repo-distill).
 [ -f scripts/check-freshness.sh ] && { bash scripts/check-freshness.sh . >/dev/null || { echo 'repo-distill: run bash scripts/render-adapters.sh'; exit 1; }; }
+# Refuse a commit that would publish a personal path, address or login name.
+[ -f tests/check-personal.sh ] && { zsh tests/check-personal.sh >/dev/null || { zsh tests/check-personal.sh; exit 1; }; }
 exit 0

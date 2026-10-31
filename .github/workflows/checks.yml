@@ -1,5 +1,10 @@
 name: checks
-on: [push, pull_request]
+on:
+  push:
+  pull_request:
+  # Every published release is downloaded and installed on a clean Mac: the check users would make.
+  release:
+    types: [published]
 jobs:
   knowledge:
     runs-on: ubuntu-latest
@@ -11,3 +16,23 @@ jobs:
         run: python3 tools/backlog.py check
       - name: Backlog tool tests
         run: python3 -m unittest -q tests/test_backlog.py
+  macos:
+    runs-on: macos-26
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0  # every commit author is checked
+      - name: Nothing personal in tracked files or commit addresses
+        run: zsh tests/check-personal.sh
+      - name: Scripts parse
+        run: |
+          for f in $(grep -l '^#!/bin/zsh' *.sh scripts/*.sh tests/*.sh); do zsh -n "$f" || exit 1; done
+          python3 -m py_compile tools/installer.py bin/amc-call
+      - name: Build from source (ad hoc on CI) holds no builder paths
+        run: |
+          ./build.sh
+          ! plutil -p build/AgentsMissionControl.app/Contents/Info.plist | grep /Users/
+      - name: The verifier refuses anything but the notarized release
+        run: zsh tests/test-verify.sh
+      - name: Install, update and remove the release; install and remove from source
+        run: AMC_TEST_SOURCE=1 zsh tests/test-install.sh

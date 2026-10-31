@@ -27,11 +27,14 @@ struct Lease: Codable {
 
 final class Privileged {
     static let shared = Privileged()
-    static let dir = (Bundle.main.object(forInfoDictionaryKey: "AMCHome") as? String).map { URL(fileURLWithPath: $0) }
+    // AMCHome is "~/.amc" (or "~/.amc-<channel>"), never the builder's absolute path: a release runs on other Macs.
+    static let dir = (Bundle.main.object(forInfoDictionaryKey: "AMCHome") as? String)
+        .map { URL(fileURLWithPath: NSString(string: $0).expandingTildeInPath) }
         ?? FileManager.default.homeDirectoryForCurrentUser.appendingPathComponent(".amc")
     static let socketPath = ProcessInfo.processInfo.environment["AMC_SOCKET"] ?? dir.appendingPathComponent("amc.sock").path
     static let tracePath = ProcessInfo.processInfo.environment["AMC_TRACE"] ?? dir.appendingPathComponent("trace.jsonl").path
     static let runsDir = dir.appendingPathComponent("runs")
+    static let version = Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? ""
     static let claudeRequirement = #"identifier "com.anthropic.claude-code" and anchor apple generic and certificate leaf[subject.OU] = "Q6L2SF6YDW""#
 
     private let lock = NSLock()
@@ -120,7 +123,8 @@ final class Privileged {
 
     private func answer(_ op: String, _ r: [String: Any], chain: [(pid: Int32, path: String)],
                         entry: inout [String: Any]) -> [String: Any] {
-        if op == "status" { return ["leases": statusRows(), "fda": Self.hasFullDiskAccess] }
+        // version: which build is RUNNING, so an update can prove the new app answers, not only that it was copied.
+        if op == "status" { return ["leases": statusRows(), "fda": Self.hasFullDiskAccess, "version": Self.version] }
         if op == "grant" { if r["dry"] == nil { DispatchQueue.main.async { self.onGrant?() } }; return ["ok": true, "fda": Self.hasFullDiskAccess] }
         guard let claude = chain.first(where: { isClaude($0.pid) })?.pid else {
             return ["error": "caller is not a Claude Code session signed by Anthropic"]

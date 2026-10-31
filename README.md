@@ -1,6 +1,6 @@
 <h1 align="center"><img src="docs/readme/hero.svg" width="960" alt="Agents Mission Control: Full Disk Access for Claude Code agents on macOS, one session at a time, approved with Touch ID, with a trace of every command"></h1>
 
-Version 0.2.0. macOS 26 or later, Apple Silicon. MIT license. By Ivan Gonzalez (tomacco) · [tomac.co](https://tomac.co)
+Version 0.3.0. macOS 26 or later, Apple Silicon. MIT license. By Ivan Gonzalez (tomacco) · [tomac.co](https://tomac.co)
 
 ## Why
 
@@ -14,7 +14,7 @@ cd agents-mission-control
 ./install.sh
 ```
 
-The installer builds the app, starts it at login, shows who signed it, and walks you through the one step macOS leaves to you: switching on Full Disk Access. It explains the step before it opens System Settings and Finder, then waits and carries on by itself.
+The installer downloads the latest release, checks that it is signed by team Y4UQ4S5ANQ and notarized by Apple (and stops if not), starts it at login, and walks you through the one step macOS leaves to you: switching on Full Disk Access. It explains the step before it opens System Settings and Finder, then waits and carries on by itself. No Xcode or Swift is needed.
 
 Then install the Claude Code plugin. At the prompt of a Claude Code terminal session:
 
@@ -26,7 +26,17 @@ From a shell: `claude plugin install amc --marketplace tomacco/agents-mission-co
 
 The app has no menu bar item and no window. Everything you see happens in the installer and in Claude Code.
 
-`build.sh` signs with the first "Developer ID Application" identity in your keychain. Without one the app is signed ad hoc, and macOS then forgets the Full Disk Access grant on every rebuild.
+## Update
+
+```sh
+cd agents-mission-control && git pull && ./install.sh
+```
+
+The installer replaces the app with the latest release, restarts it and updates the Claude Code plugin. Full Disk Access stays on, because every release has the same signer.
+
+## Build from source
+
+`./install.sh --from-source` builds this checkout instead (Xcode 26 or later). `build.sh` signs with the first "Developer ID Application" identity in your keychain, so the app is signed by you and not by the author. Without one the app is signed ad hoc, and macOS then forgets the Full Disk Access grant on every rebuild.
 
 ## How it works
 
@@ -61,6 +71,11 @@ In Claude Code: `/plugin uninstall amc`.
 - `tests/test-privileged.sh` runs against the installed app from a Claude Code session (`! zsh tests/test-privileged.sh`): a caller outside Claude Code and a run without approval are refused, and the trace chain verifies. With `--touch-id` it also approves twice and checks that an approved command reads `~/Library/Mail` while Terminal still cannot, that a one-time approval is used up, and that pipe failures show.
 - `tests/test-grant-order.sh` checks that the grant step leaves System Settings in front of Finder.
 - `tests/try-install.sh` tries the whole install as a new user with a separate test copy, then removes it.
+- `tests/test-verify.sh` checks that `scripts/verify-app.sh` passes the notarized release and refuses an unsigned, ad hoc, re-signed, altered or unnotarized app.
+- `tests/test-install.sh` (CI only) installs, updates and removes the release on a clean Mac, and checks that a zip that is not the release is refused.
+- `tests/check-personal.sh` fails when a tracked file or commit address holds a home folder path, an e-mail address or the login name. It runs in CI and before each commit.
+
+CI (`.github/workflows/checks.yml`) runs all three on macOS for every push, and again for each published release.
 
 ## Credits
 

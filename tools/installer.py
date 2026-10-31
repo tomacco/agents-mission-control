@@ -113,7 +113,7 @@ class Steps:
     def __init__(self):
         self.state = {k: "todo" for k, _ in STEPS}; self.times = {}; self.cur = None; self.t0 = time.time()
         self.progress = None; self.drawn = 0; self.lock = threading.Lock(); self.stop = False
-        self.signer = self.team = ""
+        self.signer = self.team = ""; self.titles = dict(STEPS)
 
     def bar(self, frac, width=22):
         full = int(frac * width); part = " ▏▎▍▌▋▊▉"[int((frac * width - full) * 8)] if full < width else ""
@@ -121,8 +121,8 @@ class Steps:
 
     def render(self, tick=0):
         out = []
-        for k, title in STEPS:
-            s = self.state[k]
+        for k, _ in STEPS:
+            s, title = self.state[k], self.titles[k]
             if s == "done":
                 out.append(f"  {fg(GREEN)}✓{R} {title}  {fg(GREY)}{self.times.get(k, 0):.1f}s{R}")
             elif s == "fail":
@@ -160,7 +160,8 @@ def run_install(env):
     for line in p.stdout:
         log.write(line)
         m = re.match(r"@@step (\w+) ?(.*)", line)
-        if m and m.group(1) in dict(STEPS): st.begin(m.group(1)); continue
+        if m and m.group(1) in dict(STEPS):
+            st.begin(m.group(1)); st.titles[m.group(1)] = m.group(2).strip() or dict(STEPS)[m.group(1)]; continue
         if m and m.group(1) == "signer": st.signer = m.group(2).strip(); continue
         if m and m.group(1) == "team": st.team = m.group(2).strip(); continue
         m = re.search(r"\[(\d+)/(\d+)\]", line)
@@ -377,6 +378,14 @@ def install_plugin():
     if not os.path.exists(claude):
         w(f"\n  {B}Last step{R}, in Claude Code {fg(GREY)}(on your clipboard){R}:\n    {fg(ORANGE)}{line}{R}\n")
         subprocess.run(["/usr/bin/pbcopy"], input=line, text=True); return
+    listed = subprocess.run([claude, "plugin", "list"], stdin=subprocess.DEVNULL, capture_output=True, text=True).stdout
+    if "amc@agents-mission-control" in listed:
+        p = subprocess.run([claude, "plugin", "update", "amc@agents-mission-control"], stdin=subprocess.DEVNULL,
+                           capture_output=True, text=True)
+        ok = p.returncode == 0
+        w(f"\n  {fg(GREEN if ok else AMBER)}{'✓ Plugin up to date.' if ok else '! Plugin update failed.'}{R} "
+          f"{fg(GREY)}{'New Claude Code sessions use it.' if ok else 'In Claude Code: /plugin update amc'}{R}\n")
+        return
     w(f"\n  {B}{gradient('The Claude Code plugin')}{R}\n\n")
     w(f"  It gives agents the privileged_bash tool and shows each session beside the transcript.\n")
     if not ask_yes("Install it into Claude Code now?"):

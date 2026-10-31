@@ -1,7 +1,12 @@
 # Changelog
 
-## Unreleased
+## 0.3.0 (2026-10-31)
 
+- Signed and notarized releases. `./install.sh` now downloads the latest release from GitHub and installs it only after it checks that the app is signed by team Y4UQ4S5ANQ and notarized by Apple (`scripts/verify-app.sh`). No Swift toolchain is needed. `./install.sh --from-source` builds this checkout as before, signed with your own identity or ad hoc.
+- Updating: run `./install.sh` again. It replaces the app, restarts it and updates the Claude Code plugin. The Full Disk Access grant carries over, because every release has the same signer.
+- The app runs with hardened runtime and the Apple Events entitlement, so commands that control other apps keep working.
+- `Info.plist` no longer holds the builder's home folder or checkout path.
+- CI on macOS: builds the app, installs and removes it, and checks that the verifier refuses unsigned or altered apps. Another check fails when a tracked file holds a personal path or address.
 - Automation: commands AMC runs can control another app with osascript, and macOS charges the grant to AMC, not Terminal. `build.sh` writes `NSAppleEventsUsageDescription`, the text of the prompt, and fails the build when it is missing. Plugin 0.2.14 routes "Not authorized to send Apple events" (-1743) to `privileged_bash`.
 - Plugin 0.2.10: the pane header says what Terminal reads without AMC (TERMINAL: home, .ssh, .aws, ...) and what only AMC reaches (AMC ONLY: Mail, Messages, ...). Session start checks the places macOS refuses silently; `/amc` also checks Desktop, Documents and Downloads, which can raise a macOS prompt.
 - Plugin 0.2.9: the header lock is drawn in Braille from shapes (round shackle, shaded rounded body, keyhole) in the session color, and its shackle slides up when access opens.
