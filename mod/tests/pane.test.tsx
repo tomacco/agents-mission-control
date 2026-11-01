@@ -1,6 +1,6 @@
 import { expect, test } from 'claude-code/testing'
 
-import { GENERIC, ago, newestFirst, sessionName } from '../hooks/format'
+import { GENERIC, appleEventsHint, ago, newestFirst, sessionName } from '../hooks/format'
 import { LIFT, lockPixels } from '../hooks/lock'
 import { orbRows } from '../hooks/orb'
 import { sortReach } from '../hooks/reach'
@@ -105,4 +105,11 @@ test('the header sorts places into what Terminal reads and what only AMC reaches
   expect(r.terminal).toEqual(['.ssh'])
   expect(r.amcOnly).toEqual(['Mail', 'Desktop'])
   expect(r.asked).toBe(true)
+})
+
+test('a stored Automation denial on AMC points at tccutil, and only on -1743', () => {
+  const hint = appleEventsHint('execution error: Not authorized to send Apple events to Finder. (-1743)', 'co.tomac.amc')
+  expect(hint).toContain('tccutil list -s AppleEvents -b co.tomac.amc')
+  expect(hint).toContain('tccutil reset AppleEvents co.tomac.amc')
+  expect(appleEventsHint('ghostty\n', 'co.tomac.amc')).toBe('')
 })
