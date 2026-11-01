@@ -2,7 +2,7 @@ import { atom, read, update } from 'claude-code'
 import type { EngineInterface, Register } from 'claude-code'
 
 import type { Identity, LeaseView, Reach, RunView } from '../types'
-import { GENERIC, ago, newestFirst, sessionName } from './format'
+import { GENERIC, ago, appleEventsHint, newestFirst, sessionName } from './format'
 import { LIFT, lockPixels } from './lock'
 import { orbRows } from './orb'
 import { ASKING, QUIET, sortReach } from './reach'
@@ -249,7 +249,9 @@ export const register: Register = on => {
 
     const out = await $.process.run(['/bin/cat', r.log!])
     const text = out.stdout.length > 30000 ? out.stdout.slice(0, 30000) + `\n[truncated: ${r.bytes} bytes in ${r.log}]` : out.stdout
-    return { result: `exit ${r.exit}${r.timed_out ? ' (timed out)' : ''}\n${text}` }
+    const channel = ((await $.env.get('AMC_SOCKET')) ?? '').match(/\.amc-([^/]+)\/amc\.sock$/)?.[1]
+    const hint = appleEventsHint(text, `co.tomac.amc${channel ? '.' + channel : ''}`)
+    return { result: `exit ${r.exit}${r.timed_out ? ' (timed out)' : ''}\n${text}${hint}` }
   }).catch(($, e, next) => ({
     // A hook that throws is skipped and the model reads only "no hook answered": say what went wrong instead.
     deny: `amc: the privileged_bash handler failed (${String(next.error?.cause ?? next.error ?? 'unknown').slice(0, 200)}). Tell the person; do not work around it.`,
